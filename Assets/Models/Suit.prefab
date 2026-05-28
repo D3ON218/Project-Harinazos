@@ -63,44 +63,18 @@ PrefabInstance:
       propertyPath: m_Name
       value: Suit
       objectReference: {fileID: 0}
+    - target: {fileID: 5866666021909216657, guid: 67b451a9e39e2244b81fb37e99d5e144,
+        type: 3}
+      propertyPath: m_Controller
+      value: 
+      objectReference: {fileID: 9100000, guid: 236e51667d037c44a90b841db12dc3ed, type: 2}
+    - target: {fileID: 5866666021909216657, guid: 67b451a9e39e2244b81fb37e99d5e144,
+        type: 3}
+      propertyPath: m_ApplyRootMotion
+      value: 0
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents:
-    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 67b451a9e39e2244b81fb37e99d5e144,
-        type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 3636453604798635053}
+    m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 67b451a9e39e2244b81fb37e99d5e144, type: 3}
---- !u!1 &9072738084592937106 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 67b451a9e39e2244b81fb37e99d5e144,
-    type: 3}
-  m_PrefabInstance: {fileID: 8154258495724377539}
-  m_PrefabAsset: {fileID: 0}
---- !u!143 &3636453604798635053
-CharacterController:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 9072738084592937106}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Height: 1.89
-  m_Radius: 0.25
-  m_SlopeLimit: 45
-  m_StepOffset: 0.3
-  m_SkinWidth: 0.08
-  m_MinMoveDistance: 0.001
-  m_Center: {x: 0, y: 0.8, z: 0}
