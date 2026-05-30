@@ -67,6 +67,7 @@ public class PlayerController : MonoBehaviour
     private void Update()
     {
         isGrounded = controller.isGrounded;
+
         if (isGrounded && velocity.y < 0)
         {
             velocity.y = -2f;
@@ -83,7 +84,7 @@ public class PlayerController : MonoBehaviour
         velocity.y += gravity * Time.deltaTime;
         controller.Move(velocity * Time.deltaTime);
 
-        // --- ACTUALIZAR EL BLEND TREE ---
+        // --- ACTUALIZAR EL BLEND TREE Y ESTADOS ---
         UpdateAnimator();
     }
 
@@ -92,8 +93,22 @@ public class PlayerController : MonoBehaviour
         moveInput = controls.Player.Move.ReadValue<Vector2>();
         bool isSprinting = controls.Player.Sprint.IsPressed();
 
+        // --- NUEVO: Romper la postura de agachado para salir corriendo directamente ---
+        if (isSprinting && isCrouching && moveInput.magnitude > 0.1f)
+        {
+            isCrouching = false;
+            controller.height = normalHeight;
+            controller.center = new Vector3(0, controller.height / 2f, 0);
+        }
+
         // Calculamos la velocidad actual según el estado
         currentSpeed = isCrouching ? crouchSpeed : (isSprinting ? sprintSpeed : walkSpeed);
+
+        // --- NUEVO: Reducir la velocidad si caminamos hacia atrás por realismo ---
+        if (moveInput.y < -0.1f && !isCrouching)
+        {
+            currentSpeed = walkSpeed * 0.6f;
+        }
 
         // 1. Tomamos la dirección hacia donde mira la cámara
         Vector3 forward = camTransform.forward;
@@ -136,7 +151,15 @@ public class PlayerController : MonoBehaviour
     private void Jump()
     {
         if (isGrounded && !isCrouching && !isInCover)
+        {
             velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
+
+            // --- NUEVO: ACTIVAR LA ANIMACIÓN DE SALTO ---
+            if (animator != null)
+            {
+                animator.SetTrigger("Jump");
+            }
+        }
     }
 
     private void ToggleCrouch()
@@ -204,11 +227,18 @@ public class PlayerController : MonoBehaviour
             }
             else
             {
-                targetAnimSpeed = currentSpeed; // 5 (Caminar) o 8 (Correr)
+                targetAnimSpeed = currentSpeed; // Velocidad dinámica (Caminar, Correr, Agachado, Reversa)
             }
         }
 
-        // Le mandamos el valor al Blend Tree con un pequeño amortiguador (0.1f)
+        // Le mandamos el valor de la velocidad al Blend Tree
         animator.SetFloat("Speed", targetAnimSpeed, 0.1f, Time.deltaTime);
+
+        // --- NUEVO: Mapeo de parámetros de estados ---
+        animator.SetBool("IsCrouching", isCrouching);
+        animator.SetFloat("Vertical", moveInput.y); // Ayuda al Animator a saber si vamos en reversa
+
+        // --- NUEVO: Le decimos al Animator si estamos tocando el suelo ---
+        animator.SetBool("IsGrounded", isGrounded);
     }
 }
