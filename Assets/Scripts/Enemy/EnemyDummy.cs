@@ -4,9 +4,9 @@ using System.Collections;
 public class EnemyDummy : MonoBehaviour
 {
     [Header("Estadísticas")]
-    public int saludHarina = 3; // Harinazos necesarios para un K.O. sin patada
+    public int saludHarina = 3;
     public bool isCoughing = false;
-    public float tiempoTos = 4f; // Cuántos segundos dura aturdido
+    public float tiempoTos = 4f;
 
     private Renderer render;
     private Color colorOriginal;
@@ -20,49 +20,46 @@ public class EnemyDummy : MonoBehaviour
         }
     }
 
-    // --- FUNCIÓN 1: EL IMPACTO DEL PROYECTIL ---
-    // Esta función la mandaremos llamar desde el jugador cuando le atinemos con la harina
     public void RecibirHarinazo()
     {
         saludHarina--;
 
-        // Si su salud llega a cero a puros harinazos, cae seco
         if (saludHarina <= 0)
         {
             CaerNoqueado();
         }
-        // Si no, y todavía no estaba tosiendo, lo aturdimos
         else if (!isCoughing)
         {
             StartCoroutine(EstadoVulnerable());
         }
     }
 
-    // --- FUNCIÓN 2: LA PATADA DE LEON ---
-    // Para el remate de frente o el sigilo por la espalda
     public void RecibirPatada()
     {
         CaerNoqueado();
     }
 
-    // --- EL ESTADO VULNERABLE ---
     private IEnumerator EstadoVulnerable()
     {
         isCoughing = true;
-
-        // Feedback visual: Se pone AMARILLO para avisarte que puedes patearlo
         if (render != null) render.material.color = Color.yellow;
         Debug.Log("¡Enemigo tosiendo! Vulnerable a remate.");
 
+        // NUEVO: Mientras tose, le apagamos su IA para que deje de dispararte y caminar
+        EnemigoLanzador cerebro = GetComponent<EnemigoLanzador>();
+        if (cerebro != null) cerebro.enabled = false;
+
         yield return new WaitForSeconds(tiempoTos);
 
-        // Si no lo pateaste a tiempo, se recupera
+        // Si sobrevive a la tos, le devolvemos su color y le volvemos a encender la IA
         isCoughing = false;
         if (render != null) render.material.color = colorOriginal;
+
+        if (cerebro != null) cerebro.enabled = true;
+
         Debug.Log("El enemigo se recuperó de la tos.");
     }
 
-    // --- EL K.O. DEFINITIVO ---
     private void CaerNoqueado()
     {
         StopAllCoroutines();
@@ -71,15 +68,37 @@ public class EnemyDummy : MonoBehaviour
         // Feedback visual: Se pone GRIS de que ya fue
         if (render != null) render.material.color = Color.gray;
 
-        // Lo acostamos 90 grados en el piso
-        transform.rotation = Quaternion.Euler(90, 0, 0);
+        // Lo acostamos y lo pegamos al piso
+        transform.rotation = Quaternion.Euler(90f, transform.rotation.eulerAngles.y, 0f);
+        transform.position = new Vector3(transform.position.x, 0.5f, transform.position.z);
 
-        // Desactivamos su caja de colisión para que no estorbe al caminar
-        GetComponent<Collider>().enabled = false;
+        // --- EL ARREGLO PARA QUE NO CAIGA AL VACÍO ---
+        // 1. Le apagamos la física para que no se hunda en el piso
+        Rigidbody rb = GetComponent<Rigidbody>();
+        if (rb != null)
+        {
+            rb.velocity = Vector3.zero; // Lo frenamos en seco
+            rb.isKinematic = true;      // Le quitamos la gravedad
+        }
 
-        // Apagamos este script para que ya no reciba daño
+        // 2. Lo hacemos "fantasma" (Trigger) para que lo puedas atravesar sin tropezarte
+        Collider col = GetComponent<Collider>();
+        if (col != null)
+        {
+            col.isTrigger = true;
+        }
+        // ----------------------------------------------
+
+        // APAGADO TOTAL DE IA
+        EnemigoLanzador cerebroLanzador = GetComponent<EnemigoLanzador>();
+        if (cerebroLanzador != null)
+        {
+            cerebroLanzador.enabled = false;
+        }
+
+        // Apagamos este script
         this.enabled = false;
 
-        Debug.Log("¡Enemigo Noqueado!");
+        Debug.Log("¡Enemigo Noqueado, tirado en la calle!");
     }
 }
