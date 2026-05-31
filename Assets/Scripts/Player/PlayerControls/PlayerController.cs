@@ -6,23 +6,23 @@ public class PlayerController : MonoBehaviour
 {
     private CharacterController controller;
     private PlayerControls controls;
-    private Transform camTransform; // Referencia automática a la cámara
-
-    // --- AQUÍ ESTÁ EL CEREBRO ---
+    private Transform camTransform;
     private Animator animator;
+    private PlayerCombat combatScript;
 
     [Header("Movimiento")]
     public float walkSpeed = 5f;
     public float sprintSpeed = 8f;
     public float crouchSpeed = 2.5f;
     public float playerRotationSpeed = 10f;
+    public float aimRotationSpeed = 25f;
+
     private float currentSpeed;
     private Vector2 moveInput;
     private Vector3 moveDirection;
 
-    [Header("Físicas / Salto")]
+    [Header("Físicas")]
     public float gravity = -15f;
-    public float jumpHeight = 1.5f;
     private Vector3 velocity;
     private bool isGrounded;
 
@@ -31,9 +31,9 @@ public class PlayerController : MonoBehaviour
     public float crouchHeight = 1f;
     private bool isCrouching = false;
 
-    [Header("Dash")]
-    public float dashSpeed = 20f;
-    public float dashTime = 0.2f;
+    [Header("Dash (Rodar)")]
+    public float dashSpeed = 10f;
+    public float dashTime = 0.8f;
     private bool isDashing = false;
 
     [Header("Sistema de Cobertura")]
@@ -46,17 +46,14 @@ public class PlayerController : MonoBehaviour
     {
         controller = GetComponent<CharacterController>();
         controls = new PlayerControls();
-
-        // Buscar al hijo (Suit) que tiene el Animator
         animator = GetComponentInChildren<Animator>();
+        combatScript = GetComponent<PlayerCombat>();
 
-        // Buscar la cámara principal automáticamente al iniciar
         if (Camera.main != null)
         {
             camTransform = Camera.main.transform;
         }
 
-        controls.Player.Jump.performed += ctx => Jump();
         controls.Player.Crouch.performed += ctx => ToggleCrouch();
         controls.Player.CoverDash.performed += ctx => HandleCoverOrDash();
     }
@@ -73,27 +70,45 @@ public class PlayerController : MonoBehaviour
             velocity.y = -2f;
         }
 
+        // --- FRENO DE MANO ABSOLUTO ---
+        if (combatScript != null && combatScript.isPerformingAction)
+        {
+            // Aplicamos solo gravedad para que no flote, pero cortamos todo el movimiento horizontal
+            velocity.y += gravity * Time.deltaTime;
+            controller.Move(velocity * Time.deltaTime);
+
+            // Apagamos la animación de caminar
+            if (animator != null) animator.SetFloat("Speed", 0f);
+
+            return; // Corta el Update entero aquí. El código de abajo no se lee.
+        }
+        // ------------------------------
+
+        bool isAiming = combatScript != null && combatScript.isAiming;
+
         if (!isDashing)
         {
             if (isInCover)
+            {
                 HandleCoverMovement();
+            }
             else
-                HandleStandardMovement();
+            {
+                HandleStandardMovement(isAiming);
+            }
         }
 
         velocity.y += gravity * Time.deltaTime;
         controller.Move(velocity * Time.deltaTime);
 
-        // --- ACTUALIZAR EL BLEND TREE Y ESTADOS ---
         UpdateAnimator();
     }
 
-    private void HandleStandardMovement()
+    private void HandleStandardMovement(bool isAiming)
     {
         moveInput = controls.Player.Move.ReadValue<Vector2>();
-        bool isSprinting = controls.Player.Sprint.IsPressed();
+        bool isSprinting = controls.Player.Sprint.IsPressed() && !isAiming;
 
-        // --- NUEVO: Romper la postura de agachado para salir corriendo directamente ---
         if (isSprinting && isCrouching && moveInput.magnitude > 0.1f)
         {
             isCrouching = false;
@@ -101,69 +116,71 @@ public class PlayerController : MonoBehaviour
             controller.center = new Vector3(0, controller.height / 2f, 0);
         }
 
-        // Calculamos la velocidad actual según el estado
         currentSpeed = isCrouching ? crouchSpeed : (isSprinting ? sprintSpeed : walkSpeed);
 
-        // --- NUEVO: Reducir la velocidad si caminamos hacia atrás por realismo ---
-        if (moveInput.y < -0.1f && !isCrouching)
+        if (isAiming && moveInput.y < -0.1f)
         {
-            currentSpeed = walkSpeed * 0.6f;
+            currentSpeed = crouchSpeed * 0.8f;
         }
 
-        // 1. Tomamos la dirección hacia donde mira la cámara
         Vector3 forward = camTransform.forward;
         Vector3 right = camTransform.right;
-
-        // 2. Forzamos a que el eje Y sea cero
         forward.y = 0f;
         right.y = 0f;
-
         forward.Normalize();
         right.Normalize();
 
-        // 3. El movimiento ahora es RELATIVO a la cámara
         moveDirection = (forward * moveInput.y + right * moveInput.x).normalized;
 
-        // Aplicar movimiento si hay input
         if (moveInput.magnitude > 0.1f)
         {
             controller.Move(moveDirection * currentSpeed * Time.deltaTime);
 
-            // Rotar al personaje suavemente
-            Quaternion targetRotation = Quaternion.LookRotation(moveDirection);
-            transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, playerRotationSpeed * Time.deltaTime);
+            if (isAiming)
+            {
+                Quaternion aimRotation = Quaternion.LookRotation(forward);
+                transform.rotation = Quaternion.Slerp(transform.rotation, aimRotation, aimRotationSpeed * Time.deltaTime);
+            }
+            else
+            {
+                Quaternion walkRotation = Quaternion.LookRotation(moveDirection);
+                transform.rotation = Quaternion.Slerp(transform.rotation, walkRotation, playerRotationSpeed * Time.deltaTime);
+            }
+        }
+        else if (isAiming)
+        {
+            Quaternion aimRotation = Quaternion.LookRotation(forward);
+            transform.rotation = Quaternion.Slerp(transform.rotation, aimRotation, aimRotationSpeed * Time.deltaTime);
         }
     }
 
     private void HandleCoverMovement()
     {
         moveInput = controls.Player.Move.ReadValue<Vector2>();
-        Vector3 coverRight = Vector3.Cross(Vector3.up, coverNormal).normalized;
-        Vector3 coverMoveDir = coverRight * moveInput.x;
-
         if (moveInput.magnitude > 0.1f)
         {
-            controller.Move(coverMoveDir * (walkSpeed * 0.7f) * Time.deltaTime);
-            transform.rotation = Quaternion.LookRotation(-coverNormal);
-        }
-    }
+            Vector3 coverRight = Vector3.Cross(coverNormal, Vector3.up).normalized;
+            float moveDirectionSign = Mathf.Sign(moveInput.x);
 
-    private void Jump()
-    {
-        if (isGrounded && !isCrouching && !isInCover)
-        {
-            velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
+            Vector3 lookAheadOrigin = transform.position + Vector3.up * 0.5f + (coverNormal * 0.5f) + (coverRight * moveDirectionSign * 0.3f);
+            Vector3 rayDir = (-coverNormal + coverRight * moveDirectionSign * 0.5f).normalized;
 
-            // --- NUEVO: ACTIVAR LA ANIMACIÓN DE SALTO ---
-            if (animator != null)
+            RaycastHit hit;
+            if (Physics.Raycast(lookAheadOrigin, rayDir, out hit, coverCheckDistance + 0.5f, coverLayer))
             {
-                animator.SetTrigger("Jump");
+                coverNormal = hit.normal;
+                Vector3 coverMoveDir = (coverRight * moveInput.x) + (-coverNormal * 0.5f);
+                controller.Move(coverMoveDir * (walkSpeed * 0.7f) * Time.deltaTime);
+
+                transform.rotation = Quaternion.LookRotation(coverNormal);
             }
         }
     }
 
     private void ToggleCrouch()
     {
+        if (combatScript != null && combatScript.isPerformingAction) return; // Bloqueo
+
         isCrouching = !isCrouching;
         controller.height = isCrouching ? crouchHeight : normalHeight;
         controller.center = new Vector3(0, controller.height / 2f, 0);
@@ -171,28 +188,36 @@ public class PlayerController : MonoBehaviour
 
     private void HandleCoverOrDash()
     {
+        if (combatScript != null && combatScript.isPerformingAction) return; // Bloqueo
+
         RaycastHit hit;
-        // Lanzamos el rayo para buscar cobertura
         if (Physics.Raycast(transform.position + Vector3.up * 0.5f, transform.forward, out hit, coverCheckDistance, coverLayer))
         {
             if (!isInCover)
             {
                 isInCover = true;
                 coverNormal = hit.normal;
-                transform.rotation = Quaternion.LookRotation(-coverNormal);
-                return; // Entra en cobertura y corta la función
+
+                transform.rotation = Quaternion.LookRotation(coverNormal);
+
+                isCrouching = true;
+                controller.height = crouchHeight;
+                controller.center = new Vector3(0, controller.height / 2f, 0);
+
+                return;
             }
         }
 
-        // Si ya está en cobertura, salir de ella
         if (isInCover)
         {
             isInCover = false;
+            isCrouching = false;
+            controller.height = normalHeight;
+            controller.center = new Vector3(0, controller.height / 2f, 0);
             return;
         }
 
-        // Si no encontró cobertura y no está haciendo dash, hace el Dash
-        if (!isDashing && moveInput != Vector2.zero)
+        if (!isDashing && moveInput != Vector2.zero && !(combatScript != null && combatScript.isAiming))
         {
             StartCoroutine(PerformDash());
         }
@@ -203,42 +228,46 @@ public class PlayerController : MonoBehaviour
         isDashing = true;
         float startTime = Time.time;
 
+        if (animator != null) animator.SetTrigger("Dash");
+
         while (Time.time < startTime + dashTime)
         {
+            RaycastHit hit;
+            if (Physics.Raycast(transform.position + Vector3.up * 0.5f, transform.forward, out hit, 0.8f, coverLayer))
+            {
+                isInCover = true;
+                coverNormal = hit.normal;
+                transform.rotation = Quaternion.LookRotation(coverNormal);
+
+                isCrouching = true;
+                controller.height = crouchHeight;
+                controller.center = new Vector3(0, controller.height / 2f, 0);
+
+                isDashing = false;
+                yield break;
+            }
+
             controller.Move(moveDirection * dashSpeed * Time.deltaTime);
             yield return null;
         }
         isDashing = false;
     }
 
-    // --- FUNCIÓN DEDICADA PARA EL CEREBRO (ANIMATOR) ---
     private void UpdateAnimator()
     {
         if (animator == null) return;
 
         float targetAnimSpeed = 0f;
-
-        // Si el jugador está tocando las teclas de movimiento
         if (moveInput.magnitude > 0.1f && !isDashing)
         {
-            if (isInCover)
-            {
-                targetAnimSpeed = walkSpeed * 0.7f; // Velocidad de cobertura
-            }
-            else
-            {
-                targetAnimSpeed = currentSpeed; // Velocidad dinámica (Caminar, Correr, Agachado, Reversa)
-            }
+            if (isInCover) targetAnimSpeed = walkSpeed * 0.7f;
+            else targetAnimSpeed = currentSpeed;
         }
 
-        // Le mandamos el valor de la velocidad al Blend Tree
         animator.SetFloat("Speed", targetAnimSpeed, 0.1f, Time.deltaTime);
-
-        // --- NUEVO: Mapeo de parámetros de estados ---
         animator.SetBool("IsCrouching", isCrouching);
-        animator.SetFloat("Vertical", moveInput.y); // Ayuda al Animator a saber si vamos en reversa
-
-        // --- NUEVO: Le decimos al Animator si estamos tocando el suelo ---
+        animator.SetFloat("Vertical", moveInput.y);
         animator.SetBool("IsGrounded", isGrounded);
+        animator.SetBool("IsInCover", isInCover);
     }
 }

@@ -77,8 +77,8 @@ MonoBehaviour:
   sprintSpeed: 8
   crouchSpeed: 2.5
   playerRotationSpeed: 10
+  aimRotationSpeed: 25
   gravity: -15
-  jumpHeight: 1.5
   normalHeight: 2
   crouchHeight: 1
   dashSpeed: 20
@@ -242,6 +242,11 @@ MonoBehaviour:
   height: 1.2
   shoulderOffset: 0.8
   sensitivity: 100
+  capasParedes:
+    serializedVersion: 2
+    m_Bits: 0
+  suavidadAcercamiento: 25
+  radioCamara: 0.3
 --- !u!1001 &3180202868713408535
 PrefabInstance:
   m_ObjectHideFlags: 0
