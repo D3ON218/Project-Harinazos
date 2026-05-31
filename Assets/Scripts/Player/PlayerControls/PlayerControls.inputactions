@@ -24,15 +24,6 @@
                     "initialStateCheck": true
                 },
                 {
-                    "name": "Jump",
-                    "type": "Button",
-                    "id": "808d8c53-19c4-4069-813d-67afbfd64dd8",
-                    "expectedControlType": "Button",
-                    "processors": "",
-                    "interactions": "",
-                    "initialStateCheck": false
-                },
-                {
                     "name": "Crouch",
                     "type": "Button",
                     "id": "d7772991-c63d-4723-a617-5813cd2834e3",
@@ -54,6 +45,42 @@
                     "name": "Cover/Dash",
                     "type": "Button",
                     "id": "a2479c0e-d366-40a7-9667-dc52a248007c",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "Throw",
+                    "type": "Button",
+                    "id": "e1f0b5a0-5522-401f-acbe-b7ea42531d3b",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "Melee",
+                    "type": "Button",
+                    "id": "0f0591d3-a066-4dac-84c1-1bfd8f254b1d",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "Aim",
+                    "type": "Button",
+                    "id": "f77f37aa-e64d-49c3-8f47-a25bb5a55c8d",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "Interact",
+                    "type": "Button",
+                    "id": "b4280d0f-981d-4973-bde9-3abeca7220e6",
                     "expectedControlType": "Button",
                     "processors": "",
                     "interactions": "",
@@ -151,28 +178,6 @@
                 },
                 {
                     "name": "",
-                    "id": "182877a5-f596-4568-b5b5-e576c618ae6c",
-                    "path": "<Keyboard>/space",
-                    "interactions": "",
-                    "processors": "",
-                    "groups": "",
-                    "action": "Jump",
-                    "isComposite": false,
-                    "isPartOfComposite": false
-                },
-                {
-                    "name": "",
-                    "id": "e91de217-329c-42bb-beb0-72b9e75341ce",
-                    "path": "<Gamepad>/buttonSouth",
-                    "interactions": "",
-                    "processors": "",
-                    "groups": "",
-                    "action": "Jump",
-                    "isComposite": false,
-                    "isPartOfComposite": false
-                },
-                {
-                    "name": "",
                     "id": "db9ff212-74c5-4ae5-9094-4a328c0b3515",
                     "path": "<Keyboard>/c",
                     "interactions": "",
@@ -196,8 +201,8 @@
                 {
                     "name": "",
                     "id": "3586652b-ba09-43a6-9470-83483da6292d",
-                    "path": "<Keyboard>/leftShift",
-                    "interactions": "",
+                    "path": "<Keyboard>/space",
+                    "interactions": "Hold",
                     "processors": "",
                     "groups": "",
                     "action": "Sprint",
@@ -207,8 +212,8 @@
                 {
                     "name": "",
                     "id": "a3c70037-cf5d-4a51-bcd3-6cbe9625d0da",
-                    "path": "<Gamepad>/leftStickPress",
-                    "interactions": "",
+                    "path": "<Gamepad>/buttonSouth",
+                    "interactions": "Hold",
                     "processors": "",
                     "groups": "",
                     "action": "Sprint",
@@ -218,8 +223,8 @@
                 {
                     "name": "",
                     "id": "45307f0c-4ed9-45fb-aff1-0ead2b192d4e",
-                    "path": "<Keyboard>/q",
-                    "interactions": "",
+                    "path": "<Keyboard>/space",
+                    "interactions": "Tap",
                     "processors": "",
                     "groups": "",
                     "action": "Cover/Dash",
@@ -229,11 +234,99 @@
                 {
                     "name": "",
                     "id": "b6fb6922-7d6c-4fa1-b611-d70d0326738a",
+                    "path": "<Gamepad>/buttonSouth",
+                    "interactions": "Tap",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Cover/Dash",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "16ae5b50-67ca-49f0-9255-82176c93c794",
+                    "path": "<Mouse>/leftButton",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Throw",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "7301036a-9ca6-4425-b4c8-0f5a279f43e9",
+                    "path": "<Gamepad>/rightTrigger",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Throw",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "fb0a78b4-8f29-4230-b97a-2fec62992b36",
                     "path": "<Gamepad>/buttonEast",
                     "interactions": "",
                     "processors": "",
                     "groups": "",
-                    "action": "Cover/Dash",
+                    "action": "Melee",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "e5ea8a77-2e28-4681-8ca6-5924b36c9430",
+                    "path": "<Keyboard>/f",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Melee",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "9daffe21-aa5c-40fd-82e1-1fbfc8cb9dae",
+                    "path": "<Mouse>/rightButton",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Aim",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "a0876827-3d68-48cb-bb1d-66b0f50c4cf5",
+                    "path": "<Gamepad>/leftTrigger",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Aim",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "c750c051-4d74-4d7e-acb4-1aef0d592f78",
+                    "path": "<Keyboard>/e",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Interact",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "3c896f33-2490-4e4b-a56f-e0bc8487827d",
+                    "path": "<Gamepad>/buttonWest",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Interact",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }
