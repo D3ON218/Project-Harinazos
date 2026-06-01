@@ -1355,7 +1355,8 @@ PrefabInstance:
       value: 10
       objectReference: {fileID: 0}
     m_RemovedComponents: []
-    m_RemovedGameObjects: []
+    m_RemovedGameObjects:
+    - {fileID: 9162896720489563364, guid: 2ab9fba6a7d68164fa9f2905c90f8f75, type: 3}
     m_AddedGameObjects:
     - targetCorrespondingSourceObject: {fileID: 4442785152406316890, guid: 2ab9fba6a7d68164fa9f2905c90f8f75,
         type: 3}
@@ -3680,6 +3681,11 @@ PrefabInstance:
         type: 3}
       propertyPath: m_Speed
       value: 2.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 5105571501034909223, guid: a5cc261fe16d6ab4cb44b4e26e957dd1,
+        type: 3}
+      propertyPath: m_Radius
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 7452258058277685452, guid: a5cc261fe16d6ab4cb44b4e26e957dd1,
         type: 3}

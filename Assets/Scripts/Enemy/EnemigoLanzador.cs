@@ -35,9 +35,14 @@ public class EnemigoLanzador : MonoBehaviour
     {
         agente = GetComponent<NavMeshAgent>();
 
-        // Guardamos el lugar exacto donde lo pusiste en el editor como el centro de su zona
-        centroPatrullaje = transform.position;
+        // --- EL IMÁN: Lo forzamos a aterrizar en el NavMesh ---
+        NavMeshHit hit;
+        if (NavMesh.SamplePosition(transform.position, out hit, 2.0f, NavMesh.AllAreas))
+        {
+            agente.Warp(hit.position); // Lo teletransporta exactamente a la malla azul
+        }
 
+        centroPatrullaje = transform.position;
         BuscarNuevoPuntoPatrulla();
     }
 
@@ -198,12 +203,16 @@ public class EnemigoLanzador : MonoBehaviour
 
     private void Disparar()
     {
-        GameObject proyectil = Instantiate(proyectilHarinaPrefab, puntoDisparo.position, transform.rotation);
+        // 1. Empujamos el panecillo hacia adelante para que no choque con su propia panza
+        Vector3 origenSeguro = puntoDisparo.position + transform.forward * 1.5f;
+
+        GameObject proyectil = Instantiate(proyectilHarinaPrefab, origenSeguro, transform.rotation);
         Rigidbody rb = proyectil.GetComponent<Rigidbody>();
 
         if (rb != null)
         {
-            Vector3 direccionTiro = (player.position + Vector3.up * 1f - puntoDisparo.position).normalized;
+            // 2. Apuntamos desde el nuevo origen seguro hacia ti
+            Vector3 direccionTiro = (player.position + Vector3.up * 1f - origenSeguro).normalized;
             rb.velocity = (direccionTiro + Vector3.up * 0.2f) * fuerzaLanzamiento;
         }
     }

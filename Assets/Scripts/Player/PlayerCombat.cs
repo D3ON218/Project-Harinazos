@@ -6,6 +6,10 @@ public class PlayerCombat : MonoBehaviour
     private PlayerControls controls;
     private Animator animator;
     private Transform camTransform;
+    private Rigidbody rb;
+
+    [Header("Referencias Externas")]
+    public PlayerController scriptMovimiento; // ¡YA CORREGIDO! Ahora sí te dejará arrastrarlo
 
     [Header("Inventario")]
     public int municionHarina = 0;
@@ -16,7 +20,7 @@ public class PlayerCombat : MonoBehaviour
 
     [Header("Ataque a Distancia")]
     public GameObject proyectilPrefab;
-    public Transform puntoDisparo;
+    public Transform puntoDisparo; // Tu punto original (la mano)
     public float fuerzaLanzamiento = 15f;
     public float arcoLanzamiento = 0.5f;
 
@@ -34,6 +38,7 @@ public class PlayerCombat : MonoBehaviour
         controls = new PlayerControls();
         animator = GetComponentInChildren<Animator>();
         trayectoriaLine = GetComponent<LineRenderer>();
+        rb = GetComponent<Rigidbody>();
 
         if (Camera.main != null)
         {
@@ -42,19 +47,31 @@ public class PlayerCombat : MonoBehaviour
 
         controls.Player.Throw.performed += ctx => LanzarHarina();
         controls.Player.Melee.performed += ctx => EjecutarPatada();
-
         controls.Player.Aim.started += ctx => IniciarApuntado();
         controls.Player.Aim.canceled += ctx => CancelarApuntado();
-
         controls.Player.Interact.performed += ctx => IntentarInteractuar();
     }
 
     private void OnEnable() => controls.Enable();
     private void OnDisable() => controls.Disable();
 
+    private void BloquearMovimiento()
+    {
+        isPerformingAction = true;
+        if (scriptMovimiento != null) scriptMovimiento.enabled = false;
+        if (rb != null) rb.velocity = new Vector3(0, rb.velocity.y, 0);
+        if (animator != null) animator.SetFloat("Speed", 0f);
+    }
+
+    private void DesbloquearMovimiento()
+    {
+        isPerformingAction = false;
+        if (scriptMovimiento != null) scriptMovimiento.enabled = true;
+    }
+
     private void IniciarApuntado()
     {
-        if (isPerformingAction) return; // No apuntar mientras haces otra cosa
+        if (isPerformingAction) return;
         isAiming = true;
     }
 
@@ -79,12 +96,33 @@ public class PlayerCombat : MonoBehaviour
         }
     }
 
+    // --- NUEVA LÓGICA INTELIGENTE DE DISPARO ---
+    private Vector3 ObtenerOrigenDisparo()
+    {
+        // Si estamos en cobertura, calculamos por dónde nos asomamos
+        if (scriptMovimiento != null && scriptMovimiento.isInCover)
+        {
+            // Medimos el ángulo entre el pecho del jugador y hacia dónde mira la cámara
+            float angulo = Vector3.SignedAngle(transform.forward, camTransform.forward, Vector3.up);
+
+            if (angulo < -10f)
+                // Asomando por la IZQUIERDA: Movemos el origen a la izquierda
+                return transform.position + Vector3.up * 1.2f - camTransform.right * 0.7f + camTransform.forward * 0.2f;
+            else
+                // Asomando por la DERECHA: Movemos el origen a la derecha
+                return transform.position + Vector3.up * 1.2f + camTransform.right * 0.7f + camTransform.forward * 0.2f;
+        }
+
+        // Si NO estamos en cobertura, sale de tu punto de disparo normal (tu mano)
+        return puntoDisparo != null ? puntoDisparo.position : transform.position + transform.forward + Vector3.up * 1.2f;
+    }
+
     private void DibujarTrayectoria()
     {
         int numPuntos = 30;
         trayectoriaLine.positionCount = numPuntos;
 
-        Vector3 origen = puntoDisparo != null ? puntoDisparo.position : transform.position + transform.forward + Vector3.up * 1.2f;
+        Vector3 origen = ObtenerOrigenDisparo(); // Usamos la nueva función
         Vector3 direccionLanzamiento = (camTransform.forward + Vector3.up * arcoLanzamiento).normalized;
         Vector3 velocidadInicial = direccionLanzamiento * fuerzaLanzamiento;
 
@@ -97,7 +135,6 @@ public class PlayerCombat : MonoBehaviour
         {
             float tiempo = i * 0.1f;
             Vector3 puntoCalculado = origen + (velocidadInicial * tiempo) + (Physics.gravity * 0.5f * tiempo * tiempo);
-
             Vector3 direccion = puntoCalculado - puntoAnterior;
             float distancia = direccion.magnitude;
 
@@ -124,10 +161,7 @@ public class PlayerCombat : MonoBehaviour
             }
         }
 
-        if (!golpeoAlgo && marcadorImpacto != null)
-        {
-            marcadorImpacto.SetActive(false);
-        }
+        if (!golpeoAlgo && marcadorImpacto != null) marcadorImpacto.SetActive(false);
     }
 
     private void LanzarHarina()
@@ -138,14 +172,14 @@ public class PlayerCombat : MonoBehaviour
 
     private System.Collections.IEnumerator RutinaLanzar()
     {
-        isPerformingAction = true;
+        BloquearMovimiento();
         municionHarina--;
 
         if (animator != null) animator.SetTrigger("Throw");
 
         yield return new WaitForSeconds(0.3f);
 
-        Vector3 origen = puntoDisparo != null ? puntoDisparo.position : transform.position + transform.forward + Vector3.up * 1.2f;
+        Vector3 origen = ObtenerOrigenDisparo(); // Usamos la nueva función
         GameObject proyectil = Instantiate(proyectilPrefab, origen, transform.rotation);
 
         Rigidbody rbProyectil = proyectil.GetComponent<Rigidbody>();
@@ -156,8 +190,7 @@ public class PlayerCombat : MonoBehaviour
         }
 
         yield return new WaitForSeconds(0.7f);
-
-        isPerformingAction = false;
+        DesbloquearMovimiento();
     }
 
     private void EjecutarPatada()
@@ -168,10 +201,8 @@ public class PlayerCombat : MonoBehaviour
 
     private System.Collections.IEnumerator RutinaPatada()
     {
-        isPerformingAction = true;
-
+        BloquearMovimiento();
         if (animator != null) animator.SetTrigger("Kick");
-
         yield return new WaitForSeconds(0.4f);
 
         Vector3 centroEsfera = transform.position + transform.forward * 1.2f + Vector3.up * 1f;
@@ -186,35 +217,25 @@ public class PlayerCombat : MonoBehaviour
 
                 if (coincidenciaMirada > 0.5f)
                 {
-                    Debug.Log("¡ATAQUE SIGILOSO DESDE ATRÁS! Noqueado de una patada.");
                     enemigo.RecibirPatada();
                     break;
                 }
-
                 if (enemigo.isCoughing)
                 {
-                    Debug.Log("¡PATADA GIRATORIA DE REMATE! Noqueado por combo.");
                     enemigo.RecibirPatada();
                     break;
-                }
-                else
-                {
-                    Debug.Log("Le diste una patada de frente, pero como no está tosiendo, se la peló.");
                 }
             }
         }
 
         yield return new WaitForSeconds(0.6f);
-
-        isPerformingAction = false;
+        DesbloquearMovimiento();
     }
 
     private void IntentarInteractuar()
     {
         if (isPerformingAction) return;
-
         Collider[] objetosCerca = Physics.OverlapSphere(transform.position, 1.5f);
-
         foreach (Collider col in objetosCerca)
         {
             SacoHarina saco = col.GetComponent<SacoHarina>();
@@ -228,17 +249,12 @@ public class PlayerCombat : MonoBehaviour
 
     private System.Collections.IEnumerator RutinaRecoger(SacoHarina saco)
     {
-        isPerformingAction = true;
-
+        BloquearMovimiento();
         if (animator != null) animator.SetTrigger("Pickup");
-
         yield return new WaitForSeconds(0.5f);
-
         if (saco != null) saco.Recoger(this);
-
         yield return new WaitForSeconds(0.5f);
-
-        isPerformingAction = false;
+        DesbloquearMovimiento();
     }
 
     public void AgregarMunicion(int cantidad)
