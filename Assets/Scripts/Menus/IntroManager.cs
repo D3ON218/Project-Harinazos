@@ -7,7 +7,7 @@ public class IntroManager : MonoBehaviour
     {
         if (Input.anyKeyDown)
         {
-            SceneManager.LoadScene("Ciudad");
+            SceneManager.LoadScene("Player");
         }
     }
 }
