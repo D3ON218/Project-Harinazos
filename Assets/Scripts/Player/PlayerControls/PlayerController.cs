@@ -39,7 +39,7 @@ public class PlayerController : MonoBehaviour
     [Header("Sistema de Cobertura")]
     public float coverCheckDistance = 1.5f;
     public LayerMask coverLayer;
-    private bool isInCover = false;
+    public bool isInCover = false;
     private Vector3 coverNormal;
 
     private void Awake()
