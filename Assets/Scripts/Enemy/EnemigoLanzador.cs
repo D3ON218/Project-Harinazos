@@ -1,88 +1,114 @@
 using UnityEngine;
-using UnityEngine.AI; // Vital para la IA que esquiva paredes
+using UnityEngine.AI;
 
-[RequireComponent(typeof(NavMeshAgent))] // Esto le pone el "cerebro" de navegación automáticamente
+[RequireComponent(typeof(EnemyDummy))]
 public class EnemigoLanzador : MonoBehaviour
 {
     [Header("Configuración de Tiro")]
     public Transform player;
     public GameObject proyectilHarinaPrefab;
     public Transform puntoDisparo;
-    public float distanciaAtaque = 15f;
+
+    [Tooltip("Distancia a la que te ve normalmente (Corta)")]
+    public float distanciaAtaqueNormal = 6f;
+    [Tooltip("Distancia a la que te ve cuando se asusta (Larga)")]
+    public float distanciaAtaqueAlerta = 20f;
+
     public float tiempoEntreDisparos = 4f;
     public float fuerzaLanzamiento = 12f;
 
     [Header("Patrullaje Inteligente")]
-    public float radioPatrullaje = 10f; // Qué tan lejos puede vagar desde donde lo pusiste
-    public float tiempoEsperaPunto = 2f; // Cuánto tiempo se queda viendo a la nada antes de seguir
-
-    [Header("Sistema de Chisme (Interacción)")]
-    public float radioDeteccionAmigos = 3f; // A qué distancia se saludan
-    public float tiempoPlatica = 4f; // Cuánto dura el chisme
+    public float radioPatrullaje = 5f;
+    public float tiempoEsperaPunto = 2f;
 
     private NavMeshAgent agente;
+    private Animator animator;
+    private EnemyDummy dummy;
+
     private Vector3 centroPatrullaje;
     private float tiempoSiguienteDisparo = 0f;
     private float temporizadorEspera = 0f;
     private bool esperandoEnPunto = false;
 
-    // Estados
-    public bool estaPlaticando = false;
-    private float temporizadorPlatica = 0f;
-    private Transform amigoPlatica;
-
     private void Start()
     {
         agente = GetComponent<NavMeshAgent>();
+        animator = GetComponentInChildren<Animator>();
+        dummy = GetComponent<EnemyDummy>();
 
-        // --- EL IMÁN: Lo forzamos a aterrizar en el NavMesh ---
         NavMeshHit hit;
-        if (NavMesh.SamplePosition(transform.position, out hit, 2.0f, NavMesh.AllAreas))
+        if (NavMesh.SamplePosition(transform.position, out hit, 5.0f, NavMesh.AllAreas))
         {
-            agente.Warp(hit.position); // Lo teletransporta exactamente a la malla azul
+            transform.position = hit.position;
+            agente.Warp(hit.position);
         }
 
         centroPatrullaje = transform.position;
+        esperandoEnPunto = false;
         BuscarNuevoPuntoPatrulla();
     }
 
     private void Update()
     {
-        if (player == null) return;
+        if (agente == null || !agente.enabled || dummy.saludHarina <= 0 || dummy.isCoughing) return;
 
-        float distanciaAlJugador = Vector3.Distance(transform.position, player.position);
+        // 1. Calcular el rango de visión dinámico
+        float radioVisionActual = dummy.estaAlerta ? distanciaAtaqueAlerta : distanciaAtaqueNormal;
 
-        // 1. PRIORIDAD ABSOLUTA: Si te ve, deja el chisme y te ataca
-        if (distanciaAlJugador <= distanciaAtaque)
+        // 2. Sistema de Agresividad Directa
+        if (player != null)
         {
-            RomperPlatica();
-            AtacarJugador();
+            float distanciaAlJugador = Vector3.Distance(transform.position, player.position);
+
+            // Revisa si entraste en su rango actual (corto o largo)
+            if (distanciaAlJugador <= radioVisionActual)
+            {
+                dummy.RomperPlatica();
+                dummy.estaDancing = false;
+                dummy.estaAlerta = false; // Ya te vio, ataca directo
+                AtacarJugador(radioVisionActual);
+                return;
+            }
+        }
+
+        // 3. ¿Están en estado de Alerta porque le pegaron a un amigo?
+        if (dummy.estaAlerta)
+        {
+            if (agente.isOnNavMesh) agente.isStopped = true;
+
+            // Voltean hacia el jugador a lo lejos buscando venganza
+            if (player != null)
+            {
+                Vector3 direccionMirada = player.position - transform.position;
+                direccionMirada.y = 0;
+                if (direccionMirada != Vector3.zero)
+                {
+                    transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(direccionMirada), Time.deltaTime * 3f);
+                }
+            }
             return;
         }
 
-        // 2. Si no te ve y está platicando, se queda platicando
-        if (estaPlaticando)
-        {
-            Platicar();
-            return;
-        }
+        // 4. Respetar vida social
+        if (dummy.estaDancing || dummy.estaPlaticando) return;
 
-        // 3. Buscar compadres para platicar mientras camina
-        if (BuscarAmigoParaPlaticar()) return;
-
-        // 4. Si no hay jugador ni amigos, sigue su patrullaje aleatorio
+        // 5. Patrullaje de rutina
         Patrullar();
     }
 
-    private void AtacarJugador()
+    private void AtacarJugador(float radioVisionActual)
     {
-        agente.isStopped = true; // Clava los frenos para disparar
+        if (agente.isOnNavMesh) agente.isStopped = true;
 
         Vector3 direccionMirada = player.position - transform.position;
         direccionMirada.y = 0;
-        transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(direccionMirada), Time.deltaTime * 5f);
+        if (direccionMirada != Vector3.zero)
+        {
+            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(direccionMirada), Time.deltaTime * 5f);
+        }
 
-        if (Time.time >= tiempoSiguienteDisparo && TieneLineaDeVision())
+        // Le pasamos el radio actual a la línea de visión
+        if (Time.time >= tiempoSiguienteDisparo && TieneLineaDeVision(radioVisionActual))
         {
             Disparar();
             tiempoSiguienteDisparo = Time.time + tiempoEntreDisparos;
@@ -91,9 +117,8 @@ public class EnemigoLanzador : MonoBehaviour
 
     private void Patrullar()
     {
-        agente.isStopped = false; // Le quita el freno
+        if (agente.isOnNavMesh) agente.isStopped = false;
 
-        // Si llegó a un punto, espera un ratito antes de moverse al siguiente
         if (esperandoEnPunto)
         {
             temporizadorEspera += Time.deltaTime;
@@ -106,95 +131,41 @@ public class EnemigoLanzador : MonoBehaviour
             return;
         }
 
-        // Si ya llegó a su destino actual (NavMesh sabe cuando ya llegó)
         if (!agente.pathPending && agente.remainingDistance <= agente.stoppingDistance)
         {
             esperandoEnPunto = true;
+            temporizadorEspera = 0f;
         }
     }
 
     private void BuscarNuevoPuntoPatrulla()
     {
-        // Elige un punto al azar dentro de su círculo de patrullaje
-        Vector3 direccionAleatoria = Random.insideUnitSphere * radioPatrullaje;
-        direccionAleatoria += centroPatrullaje;
+        if (radioPatrullaje <= 0) radioPatrullaje = 10f;
 
-        NavMeshHit hit;
-        // SamplePosition verifica que ese punto aleatorio no esté adentro de una casa o fuera del mapa
-        if (NavMesh.SamplePosition(direccionAleatoria, out hit, radioPatrullaje, NavMesh.AllAreas))
+        for (int i = 0; i < 10; i++)
         {
-            agente.SetDestination(hit.position);
-        }
-    }
+            Vector3 direccionAleatoria = Random.insideUnitSphere * radioPatrullaje;
+            direccionAleatoria += centroPatrullaje;
 
-    private bool BuscarAmigoParaPlaticar()
-    {
-        // Tira un radar a su alrededor buscando a otros enemigos
-        Collider[] amigosCercanos = Physics.OverlapSphere(transform.position, radioDeteccionAmigos);
-
-        foreach (Collider col in amigosCercanos)
-        {
-            if (col.gameObject == this.gameObject) continue; // No puede platicar consigo mismo
-
-            EnemigoLanzador otroEnemigo = col.GetComponent<EnemigoLanzador>();
-
-            // Si encontró a otro enemigo y ESE enemigo no está platicando ya con alguien más
-            if (otroEnemigo != null && !otroEnemigo.estaPlaticando)
+            NavMeshHit hit;
+            if (NavMesh.SamplePosition(direccionAleatoria, out hit, radioPatrullaje, NavMesh.AllAreas))
             {
-                // Ambos inician el chisme
-                IniciarPlaticaCon(otroEnemigo);
-                otroEnemigo.IniciarPlaticaCon(this);
-                return true;
+                if (agente.isOnNavMesh)
+                {
+                    agente.SetDestination(hit.position);
+                    return;
+                }
             }
         }
-        return false;
     }
 
-    public void IniciarPlaticaCon(EnemigoLanzador amigo)
+    private bool TieneLineaDeVision(float radioVisionActual)
     {
-        estaPlaticando = true;
-        temporizadorPlatica = 0f;
-        amigoPlatica = amigo.transform;
-
-        agente.isStopped = true; // Se detienen para hablar
-
-        // --- AQUÍ PONDRÁS TU ANIMACIÓN DESPUÉS ---
-        // if (animator != null) animator.SetBool("IsChatting", true);
-    }
-
-    private void Platicar()
-    {
-        // Se giran suavemente para verse a los ojos
-        if (amigoPlatica != null)
-        {
-            Vector3 direccionMirada = amigoPlatica.position - transform.position;
-            direccionMirada.y = 0;
-            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(direccionMirada), Time.deltaTime * 5f);
-        }
-
-        temporizadorPlatica += Time.deltaTime;
-
-        // Cuando se acaba el tiempo, se despiden
-        if (temporizadorPlatica >= tiempoPlatica)
-        {
-            RomperPlatica();
-        }
-    }
-
-    public void RomperPlatica()
-    {
-        estaPlaticando = false;
-        amigoPlatica = null;
-        if (agente != null && agente.isOnNavMesh) agente.isStopped = false; // Vuelven a caminar
-
-        // --- AQUÍ QUITARÁS TU ANIMACIÓN DESPUÉS ---
-        // if (animator != null) animator.SetBool("IsChatting", false);
-    }
-
-    private bool TieneLineaDeVision()
-    {
+        if (puntoDisparo == null) return false;
         Vector3 direccion = (player.position + Vector3.up * 1f) - puntoDisparo.position;
-        if (Physics.Raycast(puntoDisparo.position, direccion, out RaycastHit hit, distanciaAtaque))
+
+        // El raycast ahora llega hasta su visión máxima actual
+        if (Physics.Raycast(puntoDisparo.position, direccion.normalized, out RaycastHit hit, radioVisionActual))
         {
             if (hit.collider.CompareTag("Player")) return true;
         }
@@ -203,15 +174,16 @@ public class EnemigoLanzador : MonoBehaviour
 
     private void Disparar()
     {
-        // 1. Empujamos el panecillo hacia adelante para que no choque con su propia panza
-        Vector3 origenSeguro = puntoDisparo.position + transform.forward * 1.5f;
+        if (puntoDisparo == null) return;
 
+        if (animator != null) animator.SetTrigger("Throw");
+
+        Vector3 origenSeguro = puntoDisparo.position + transform.forward * 1.2f;
         GameObject proyectil = Instantiate(proyectilHarinaPrefab, origenSeguro, transform.rotation);
         Rigidbody rb = proyectil.GetComponent<Rigidbody>();
 
         if (rb != null)
         {
-            // 2. Apuntamos desde el nuevo origen seguro hacia ti
             Vector3 direccionTiro = (player.position + Vector3.up * 1f - origenSeguro).normalized;
             rb.velocity = (direccionTiro + Vector3.up * 0.2f) * fuerzaLanzamiento;
         }

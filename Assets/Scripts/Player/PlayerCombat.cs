@@ -9,7 +9,7 @@ public class PlayerCombat : MonoBehaviour
     private Rigidbody rb;
 
     [Header("Referencias Externas")]
-    public PlayerController scriptMovimiento; // ¡YA CORREGIDO! Ahora sí te dejará arrastrarlo
+    public PlayerController scriptMovimiento;
 
     [Header("Inventario")]
     public int municionHarina = 0;
@@ -20,7 +20,7 @@ public class PlayerCombat : MonoBehaviour
 
     [Header("Ataque a Distancia")]
     public GameObject proyectilPrefab;
-    public Transform puntoDisparo; // Tu punto original (la mano)
+    public Transform puntoDisparo;
     public float fuerzaLanzamiento = 15f;
     public float arcoLanzamiento = 0.5f;
 
@@ -96,25 +96,45 @@ public class PlayerCombat : MonoBehaviour
         }
     }
 
-    // --- NUEVA LÓGICA INTELIGENTE DE DISPARO ---
+    // --- 1. LÓGICA DE ASOMO LATERAL ---
     private Vector3 ObtenerOrigenDisparo()
     {
-        // Si estamos en cobertura, calculamos por dónde nos asomamos
         if (scriptMovimiento != null && scriptMovimiento.isInCover)
         {
-            // Medimos el ángulo entre el pecho del jugador y hacia dónde mira la cámara
+            // Calculamos el ángulo para saber si miras a la izquierda o a la derecha
             float angulo = Vector3.SignedAngle(transform.forward, camTransform.forward, Vector3.up);
 
-            if (angulo < -10f)
-                // Asomando por la IZQUIERDA: Movemos el origen a la izquierda
-                return transform.position + Vector3.up * 1.2f - camTransform.right * 0.7f + camTransform.forward * 0.2f;
-            else
-                // Asomando por la DERECHA: Movemos el origen a la derecha
-                return transform.position + Vector3.up * 1.2f + camTransform.right * 0.7f + camTransform.forward * 0.2f;
+            // transform.right es una línea paralela al muro. Lo multiplicamos para asomarnos por ese lado.
+            Vector3 ladoAsomo = (angulo < 0) ? -transform.right : transform.right;
+
+            // Altura del hombro + nos asomamos al lado + nos asomamos un poco hacia la calle
+            return transform.position + (Vector3.up * 1.2f) + (ladoAsomo * 0.7f) + (transform.forward * 0.5f);
         }
 
-        // Si NO estamos en cobertura, sale de tu punto de disparo normal (tu mano)
-        return puntoDisparo != null ? puntoDisparo.position : transform.position + transform.forward + Vector3.up * 1.2f;
+        return puntoDisparo != null ? puntoDisparo.position : transform.position + transform.forward * 0.5f + Vector3.up * 1.2f;
+    }
+
+    // --- 2. APUNTADO PERFECTO AL CENTRO DE LA CÁMARA ---
+    private Vector3 CalcularDireccionTiro(Vector3 origen)
+    {
+        Vector3 puntoDestino;
+
+        // Lanzamos un rayo desde el centro de la cámara para saber qué estás mirando
+        if (Physics.Raycast(camTransform.position, camTransform.forward, out RaycastHit hit, 100f, capaColisionTrayectoria))
+        {
+            puntoDestino = hit.point;
+        }
+        else
+        {
+            // Si apuntas al cielo o al vacío, ponemos el destino muy lejos
+            puntoDestino = camTransform.position + camTransform.forward * 50f;
+        }
+
+        // La dirección real es desde tu mano asomada hacia ese punto cruzado
+        Vector3 direccionReal = (puntoDestino - origen).normalized;
+
+        // Le sumamos el arco para que haga la parábola
+        return (direccionReal + Vector3.up * arcoLanzamiento).normalized;
     }
 
     private void DibujarTrayectoria()
@@ -122,8 +142,8 @@ public class PlayerCombat : MonoBehaviour
         int numPuntos = 30;
         trayectoriaLine.positionCount = numPuntos;
 
-        Vector3 origen = ObtenerOrigenDisparo(); // Usamos la nueva función
-        Vector3 direccionLanzamiento = (camTransform.forward + Vector3.up * arcoLanzamiento).normalized;
+        Vector3 origen = ObtenerOrigenDisparo();
+        Vector3 direccionLanzamiento = CalcularDireccionTiro(origen); // Usa el cálculo AAA
         Vector3 velocidadInicial = direccionLanzamiento * fuerzaLanzamiento;
 
         Vector3 puntoAnterior = origen;
@@ -179,13 +199,13 @@ public class PlayerCombat : MonoBehaviour
 
         yield return new WaitForSeconds(0.3f);
 
-        Vector3 origen = ObtenerOrigenDisparo(); // Usamos la nueva función
+        Vector3 origen = ObtenerOrigenDisparo();
         GameObject proyectil = Instantiate(proyectilPrefab, origen, transform.rotation);
 
         Rigidbody rbProyectil = proyectil.GetComponent<Rigidbody>();
         if (rbProyectil != null)
         {
-            Vector3 direccionLanzamiento = (camTransform.forward + Vector3.up * arcoLanzamiento).normalized;
+            Vector3 direccionLanzamiento = CalcularDireccionTiro(origen); // Usa el cálculo AAA
             rbProyectil.velocity = direccionLanzamiento * fuerzaLanzamiento;
         }
 
@@ -215,12 +235,7 @@ public class PlayerCombat : MonoBehaviour
             {
                 float coincidenciaMirada = Vector3.Dot(transform.forward, enemigo.transform.forward);
 
-                if (coincidenciaMirada > 0.5f)
-                {
-                    enemigo.RecibirPatada();
-                    break;
-                }
-                if (enemigo.isCoughing)
+                if (coincidenciaMirada > 0.5f || enemigo.isCoughing)
                 {
                     enemigo.RecibirPatada();
                     break;
