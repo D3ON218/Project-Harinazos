@@ -12,6 +12,8 @@ public class EnemyDummy : MonoBehaviour
     [Header("Esta tosiendo bro")]
     public Vector3 rotacionMagicaTos = new Vector3(-90f, 0f, 0f);
     public Vector3 offsetAlturaTos = new Vector3(0f, 1f, 0f);
+    private Vector3 posInicialModelo;
+    private Quaternion rotInicialModelo;
 
     [Header("Fakin chisme")]
     public float radioDeteccionAmigos = 4f;
@@ -31,19 +33,17 @@ public class EnemyDummy : MonoBehaviour
 
     [Header("Seguridad de Combate")]
     [Tooltip("Cualquier script de ataque puede activar esto para apagar el chisme/baile temporalmente")]
-    public bool bloqueadoPorCombate = false; 
+    public bool bloqueadoPorCombate = false;
 
     private Animator animator;
     private NavMeshAgent agente;
-
-    private Vector3 posInicialModelo;
-    private Quaternion rotInicialModelo;
 
     private void Awake()
     {
         animator = GetComponentInChildren<Animator>();
         agente = GetComponent<NavMeshAgent>();
 
+        // MAGIA DE ROTACIÓN: Guardamos la postura original
         if (animator != null)
         {
             posInicialModelo = animator.transform.localPosition;
@@ -256,6 +256,7 @@ public class EnemyDummy : MonoBehaviour
 
         if (animator != null)
         {
+            // MAGIA DE ROTACIÓN: Enderezamos el modelo chueco para que no se claven de cara
             animator.transform.localRotation = Quaternion.Euler(rotacionMagicaTos);
             animator.transform.localPosition = posInicialModelo + offsetAlturaTos;
             animator.SetBool("IsCoughing", true);
@@ -274,6 +275,7 @@ public class EnemyDummy : MonoBehaviour
         if (animator != null)
         {
             animator.SetBool("IsCoughing", false);
+            // MAGIA DE ROTACIÓN: Regresamos el modelo a su postura normal
             animator.transform.localRotation = rotInicialModelo;
             animator.transform.localPosition = posInicialModelo;
         }
