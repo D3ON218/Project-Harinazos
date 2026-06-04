@@ -7,6 +7,8 @@ public class EnemigoLanzador : MonoBehaviour
     [Header("Configuración de Tiro")]
     public Transform player;
     public GameObject proyectilHarinaPrefab;
+
+    [Tooltip("Déjalo vacío, el script buscará su propia mano al iniciar")]
     public Transform puntoDisparo;
 
     [Tooltip("Distancia a la que te ve normalmente (Corta)")]
@@ -36,6 +38,27 @@ public class EnemigoLanzador : MonoBehaviour
         animator = GetComponentInChildren<Animator>();
         dummy = GetComponent<EnemyDummy>();
 
+        // CORRECCIÓN 2: Autoconectar Player y Punto de Disparo
+        if (player == null)
+        {
+            GameObject jugadorObj = GameObject.FindGameObjectWithTag("Player");
+            if (jugadorObj != null) player = jugadorObj.transform;
+        }
+
+        // Busca cualquier objeto hijo que se llame "PuntoDisparo"
+        if (puntoDisparo == null)
+        {
+            Transform[] todosLosHijos = GetComponentsInChildren<Transform>();
+            foreach (Transform hijo in todosLosHijos)
+            {
+                if (hijo.name == "PuntoDisparo")
+                {
+                    puntoDisparo = hijo;
+                    break;
+                }
+            }
+        }
+
         NavMeshHit hit;
         if (NavMesh.SamplePosition(transform.position, out hit, 5.0f, NavMesh.AllAreas))
         {
@@ -63,8 +86,6 @@ public class EnemigoLanzador : MonoBehaviour
 
             if (distanciaAlJugador <= radioVisionActual)
             {
-                // --- SEGURO ANTI-FLICKER ---
-                // Solo interrumpimos al dummy si REALMENTE está haciendo la actividad social
                 if (dummy.estaPlaticando) dummy.RomperPlatica();
                 if (dummy.estaDancing) dummy.estaDancing = false;
 

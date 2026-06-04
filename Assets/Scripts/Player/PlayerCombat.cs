@@ -221,12 +221,22 @@ public class PlayerCombat : MonoBehaviour
             EnemyDummy enemigo = col.GetComponent<EnemyDummy>();
             if (enemigo != null)
             {
-                float coincidenciaMirada = Vector3.Dot(transform.forward, enemigo.transform.forward);
+                // REGLA 1: ¿Está tosiendo y vulnerable?
+                bool estaTosiendo = enemigo.isCoughing;
 
-                if (coincidenciaMirada > 0.5f || enemigo.isCoughing)
+                // REGLA 2: ¿Estamos atacando por la espalda? (El jugador y el enemigo miran al mismo lado)
+                bool esPorLaEspalda = Vector3.Dot(transform.forward, enemigo.transform.forward) > 0.5f;
+
+                // REGLA 3: ¿Es un Enemigo Corredor y lo tenemos enfrente?
+                bool esCorredor = col.GetComponent<EnemigoCorredor>() != null;
+                Vector3 direccionAlEnemigo = (enemigo.transform.position - transform.position).normalized;
+                bool estaEnFrente = Vector3.Dot(transform.forward, direccionAlEnemigo) > 0.2f;
+
+                // EL Veredicto Final:
+                if (estaTosiendo || esPorLaEspalda || (esCorredor && estaEnFrente))
                 {
                     enemigo.RecibirPatada();
-                    break;
+                    break; // Rompemos el ciclo para solo patear a un enemigo a la vez
                 }
             }
         }

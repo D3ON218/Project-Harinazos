@@ -39,6 +39,9 @@ public class EnemigoCorredor : MonoBehaviour
     public bool estaAtacando = false;
     private float radioAmigosOriginal;
 
+    // --- NUESTRA VARIABLE DEL FRENO DE MANO ---
+    private bool estabaTosiendo = false;
+
     private void Start()
     {
         agente = GetComponent<NavMeshAgent>();
@@ -57,8 +60,33 @@ public class EnemigoCorredor : MonoBehaviour
 
     private void Update()
     {
-        if (agente == null || !agente.enabled || dummy.saludHarina <= 0 || dummy.isCoughing) return;
+        // 1. QUITAMOS dummy.isCoughing DE ESTA LÍNEA
+        if (agente == null || !agente.enabled || dummy.saludHarina <= 0) return;
         if (EnemigoTecho.eventoCinematicoActivo) return;
+
+        // 2. AGREGAMOS EL BLOQUE DEL FRENO DE MANO
+        if (dummy.isCoughing)
+        {
+            if (!estabaTosiendo)
+            {
+                // En el instante del golpe, detenemos el NavMeshAgent en seco
+                if (agente.isOnNavMesh)
+                {
+                    agente.isStopped = true;
+                    agente.velocity = Vector3.zero;
+                }
+                estabaTosiendo = true;
+            }
+            return; // Abortamos el resto del Update mientras tose
+        }
+        else if (estabaTosiendo)
+        {
+            // Ya se le pasó la tos, le quitamos el freno de mano
+            estabaTosiendo = false;
+            if (agente.isOnNavMesh) agente.isStopped = false;
+        }
+
+        // --- DE AQUÍ PARA ABAJO ES TU CÓDIGO NORMAL ---
 
         if (estaAtacando)
         {
@@ -187,7 +215,6 @@ public class EnemigoCorredor : MonoBehaviour
 
             foreach (Collider col in afectados)
             {
-                // CONEXIÓN AL NUEVO SISTEMA DE SALUD
                 if (col.CompareTag("Player"))
                 {
                     PlayerHealth playerHealth = col.GetComponent<PlayerHealth>();
