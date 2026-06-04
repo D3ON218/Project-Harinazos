@@ -51,6 +51,7 @@ public class EnemigoLanzador : MonoBehaviour
     private void Update()
     {
         if (agente == null || !agente.enabled || dummy.saludHarina <= 0 || dummy.isCoughing) return;
+        if (EnemigoTecho.eventoCinematicoActivo) return;
 
         // 1. Calcular el rango de visión dinámico
         float radioVisionActual = dummy.estaAlerta ? distanciaAtaqueAlerta : distanciaAtaqueNormal;
@@ -60,23 +61,25 @@ public class EnemigoLanzador : MonoBehaviour
         {
             float distanciaAlJugador = Vector3.Distance(transform.position, player.position);
 
-            // Revisa si entraste en su rango actual (corto o largo)
             if (distanciaAlJugador <= radioVisionActual)
             {
-                dummy.RomperPlatica();
-                dummy.estaDancing = false;
-                dummy.estaAlerta = false; // Ya te vio, ataca directo
+                // --- SEGURO ANTI-FLICKER ---
+                // Solo interrumpimos al dummy si REALMENTE está haciendo la actividad social
+                if (dummy.estaPlaticando) dummy.RomperPlatica();
+                if (dummy.estaDancing) dummy.estaDancing = false;
+
+                dummy.estaAlerta = false;
+
                 AtacarJugador(radioVisionActual);
                 return;
             }
         }
 
-        // 3. ¿Están en estado de Alerta porque le pegaron a un amigo?
+        // 3. Estado de Alerta por Mente Colmena
         if (dummy.estaAlerta)
         {
             if (agente.isOnNavMesh) agente.isStopped = true;
 
-            // Voltean hacia el jugador a lo lejos buscando venganza
             if (player != null)
             {
                 Vector3 direccionMirada = player.position - transform.position;
@@ -107,7 +110,6 @@ public class EnemigoLanzador : MonoBehaviour
             transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(direccionMirada), Time.deltaTime * 5f);
         }
 
-        // Le pasamos el radio actual a la línea de visión
         if (Time.time >= tiempoSiguienteDisparo && TieneLineaDeVision(radioVisionActual))
         {
             Disparar();
@@ -164,7 +166,6 @@ public class EnemigoLanzador : MonoBehaviour
         if (puntoDisparo == null) return false;
         Vector3 direccion = (player.position + Vector3.up * 1f) - puntoDisparo.position;
 
-        // El raycast ahora llega hasta su visión máxima actual
         if (Physics.Raycast(puntoDisparo.position, direccion.normalized, out RaycastHit hit, radioVisionActual))
         {
             if (hit.collider.CompareTag("Player")) return true;

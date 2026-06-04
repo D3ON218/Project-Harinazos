@@ -34,7 +34,7 @@ public class PlayerController : MonoBehaviour
     [Header("Dash (Rodar)")]
     public float dashSpeed = 10f;
     public float dashTime = 0.8f;
-    private bool isDashing = false;
+    public bool isDashing = false;
 
     [Header("Sistema de Cobertura")]
     public float coverCheckDistance = 1.5f;
@@ -70,19 +70,15 @@ public class PlayerController : MonoBehaviour
             velocity.y = -2f;
         }
 
-        // --- FRENO DE MANO ABSOLUTO ---
         if (combatScript != null && combatScript.isPerformingAction)
         {
-            // Aplicamos solo gravedad para que no flote, pero cortamos todo el movimiento horizontal
             velocity.y += gravity * Time.deltaTime;
             controller.Move(velocity * Time.deltaTime);
 
-            // Apagamos la animación de caminar
             if (animator != null) animator.SetFloat("Speed", 0f);
 
-            return; // Corta el Update entero aquí. El código de abajo no se lee.
+            return; 
         }
-        // ------------------------------
 
         bool isAiming = combatScript != null && combatScript.isAiming;
 

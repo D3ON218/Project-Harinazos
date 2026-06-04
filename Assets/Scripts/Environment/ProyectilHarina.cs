@@ -7,7 +7,7 @@ public class ProyectilHarina : MonoBehaviour
 
     [Header("Efectos Visuales")]
     public GameObject nubePolvoPrefab;
-    public GameObject decalPrefab; // Aquí arrastrarás tu nuevo Prefab "DecalMancha"
+    public GameObject decalPrefab;
 
     private void Start()
     {
@@ -25,22 +25,26 @@ public class ProyectilHarina : MonoBehaviour
             Instantiate(nubePolvoPrefab, puntoImpacto, Quaternion.identity);
         }
 
+        // Si le pega a un enemigo...
         EnemyDummy enemigo = collision.gameObject.GetComponent<EnemyDummy>();
         if (enemigo != null)
         {
             enemigo.RecibirHarinazo();
         }
+        // CONEXIÓN AL NUEVO SISTEMA DE SALUD: Si el proyectil le pega a tu personaje...
+        else if (collision.gameObject.CompareTag("Player"))
+        {
+            PlayerHealth playerHealth = collision.gameObject.GetComponent<PlayerHealth>();
+            if (playerHealth != null)
+            {
+                playerHealth.MancharTraje(10f);
+            }
+        }
 
-        // --- SISTEMA DE PROYECCIÓN DE CALCOMANÍAS ---
         if (decalPrefab != null)
         {
-            // El proyector necesita nacer un poco separado para proyectar hacia adentro
             Vector3 posicionDecal = puntoImpacto + (direccionPared * 0.1f);
-
-            // Lo rotamos para que apunte directamente a la superficie
             GameObject decal = Instantiate(decalPrefab, posicionDecal, Quaternion.LookRotation(-direccionPared));
-
-            // Importante: Lo hacemos hijo para que se mueva con el enemigo o pared
             decal.transform.SetParent(collision.transform);
         }
 

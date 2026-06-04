@@ -1,104 +1,327 @@
 using UnityEngine;
+using System.Collections;
 
-[RequireComponent(typeof(Rigidbody))]
+[RequireComponent(typeof(EnemyDummy))]
 public class EnemigoTecho : MonoBehaviour
 {
-    [Header("Configuración de Caída")]
-    public float radioDeteccionSuelo = 4f;
-    public LayerMask capaJugador;
+    public static bool eventoCinematicoActivo = false;
 
-    [Header("Explosión de Harina")]
-    public GameObject nubeExplosionPrefab;
-    public float radioExplosion = 5f;
+    [Header("Ataque Cinemático (El Apachurrón)")]
+    public Transform player;
+    public GameObject nubeHarinaPrefab;
+    public float multiplicadorTamanoExplosion = 4f;
 
-    [Header("Patrullaje")]
-    public Transform[] puntosPatrulla;
-    public float velocidadPatrulla = 2f;
-    public float tiempoEspera = 2f;
+    public float radioDeteccion = 3.5f;
+    public float tiempoAdvertencia = 0.5f;
+    public float tiempoVentanaQTE = 1.5f;
 
-    private Rigidbody rb;
-    private bool yaCayo = false;
-    private float tiempoInicioCaida = 0f;
+    [Header("Físicas del Salto (Arco)")]
+    public float alturaArcoSalto = 2.0f;
 
-    // Variables de patrulla
-    private int indiceDestino = 0;
-    private float temporizadorEspera = 0f;
-    private bool esperando = false;
+    [Header("Efectos de Cámara")]
+    public float zoomFOV = 40f;
+    private float fovOriginal;
+    private Camera camaraPrincipal;
 
-    private void Awake()
+    private Quaternion rotacionOriginalCamara;
+    private Vector3 offsetOriginalCamara;
+    private MonoBehaviour scriptCamaraController;
+
+    private EnemyDummy dummy;
+    private Animator animator;
+    private PlayerController playerController;
+
+    private enum EstadoTecho { Fiesta, Advertencia, QTE, Cayendo, Inactivo }
+    private EstadoTecho estadoActual = EstadoTecho.Fiesta;
+
+    private int ciclosBaile = 0;
+    private bool forzandoBaile = false;
+
+    private void Start()
     {
-        rb = GetComponent<Rigidbody>();
-        rb.isKinematic = true;
+        dummy = GetComponent<EnemyDummy>();
+        animator = GetComponentInChildren<Animator>();
+        camaraPrincipal = Camera.main;
+
+        if (player != null)
+        {
+            playerController = player.GetComponent<PlayerController>();
+        }
+
+        if (camaraPrincipal != null) fovOriginal = camaraPrincipal.fieldOfView;
+
+        UnityEngine.AI.NavMeshAgent agente = GetComponent<UnityEngine.AI.NavMeshAgent>();
+        if (agente != null) agente.enabled = false;
+
+        StartCoroutine(RutinaFiestaTecho());
     }
 
     private void Update()
     {
-        if (yaCayo) return;
+        if (dummy == null || dummy.saludHarina <= 0 || dummy.isCoughing || player == null) return;
 
-        // 1. Buscar al jugador hacia abajo
-        RaycastHit hit;
-        if (Physics.SphereCast(transform.position, radioDeteccionSuelo, Vector3.down, out hit, 20f, capaJugador))
+        if (estadoActual == EstadoTecho.Fiesta)
         {
-            Desplomar();
-            return; // Cortamos aquí para que deje de patrullar
-        }
-
-        // 2. Si no ve al jugador, Patrullar
-        Patrullar();
-    }
-
-    private void Patrullar()
-    {
-        if (puntosPatrulla == null || puntosPatrulla.Length == 0) return;
-
-        if (esperando)
-        {
-            temporizadorEspera += Time.deltaTime;
-            if (temporizadorEspera >= tiempoEspera)
+            Vector3 direccionMirada = player.position - transform.position;
+            direccionMirada.y = 0;
+            if (direccionMirada != Vector3.zero)
             {
-                esperando = false;
-                temporizadorEspera = 0f;
-                // Mirar al nuevo punto
-                transform.LookAt(puntosPatrulla[indiceDestino]);
+                transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(direccionMirada), Time.deltaTime * 3f);
             }
-            return;
-        }
 
-        Transform destino = puntosPatrulla[indiceDestino];
-        transform.position = Vector3.MoveTowards(transform.position, destino.position, velocidadPatrulla * Time.deltaTime);
+            Vector2 posEnemigo2D = new Vector2(transform.position.x, transform.position.z);
+            Vector2 posJugador2D = new Vector2(player.position.x, player.position.z);
+            float distanciaHorizontal = Vector2.Distance(posEnemigo2D, posJugador2D);
 
-        if (Vector3.Distance(transform.position, destino.position) < 0.1f)
-        {
-            esperando = true;
-            indiceDestino = (indiceDestino + 1) % puntosPatrulla.Length;
+            if (distanciaHorizontal <= radioDeteccion && transform.position.y > player.position.y + 1f)
+            {
+                StartCoroutine(RutinaAdvertencia());
+            }
         }
     }
 
-    private void Desplomar()
+    private IEnumerator RutinaFiestaTecho()
     {
-        yaCayo = true;
-        rb.isKinematic = false;
-        tiempoInicioCaida = Time.time; // Guardamos la hora exacta de la caída
+        while (dummy.saludHarina > 0)
+        {
+            if (estadoActual != EstadoTecho.Fiesta || dummy.estaPlaticando)
+            {
+                if (forzandoBaile) { forzandoBaile = false; dummy.estaDancing = false; }
+                yield return null;
+                continue;
+            }
+
+            forzandoBaile = true;
+            dummy.estaDancing = true;
+
+            yield return new WaitForSeconds(Random.Range(4f, 6f));
+
+            ciclosBaile++;
+
+            if (ciclosBaile >= Random.Range(3, 6))
+            {
+                forzandoBaile = false;
+                dummy.estaDancing = false;
+                yield return new WaitForSeconds(3f);
+                ciclosBaile = 0;
+            }
+        }
     }
 
-    private void OnCollisionEnter(Collision collision)
+    private IEnumerator RutinaAdvertencia()
     {
-        if (!yaCayo) return;
+        estadoActual = EstadoTecho.Advertencia;
 
-        // EL ARREGLO: Le damos 0.5 segundos de invulnerabilidad para que se despegue del techo
-        if (Time.time < tiempoInicioCaida + 0.5f) return;
+        dummy.bloqueadoPorCombate = true;
+        forzandoBaile = false;
+        dummy.estaDancing = false;
+        dummy.RomperPlatica();
 
-        if (nubeExplosionPrefab != null)
+        if (animator != null)
         {
-            Instantiate(nubeExplosionPrefab, transform.position, Quaternion.identity);
+            animator.SetBool("IsDancing", false);
+            animator.SetBool("IsTalking", false);
+            animator.Play("Base Layer.Idle", 0, 0f);
         }
 
-        Collider[] afectados = Physics.OverlapSphere(transform.position, radioExplosion, capaJugador);
-        foreach (Collider col in afectados)
+        float timer = 0;
+        while (timer < tiempoAdvertencia)
         {
-            Debug.Log("¡El jugador fue alcanzado por la explosión!");
+            Vector2 posEnemigo2D = new Vector2(transform.position.x, transform.position.z);
+            Vector2 posJugador2D = new Vector2(player.position.x, player.position.z);
+
+            if (Vector2.Distance(posEnemigo2D, posJugador2D) > radioDeteccion)
+            {
+                estadoActual = EstadoTecho.Fiesta;
+                dummy.bloqueadoPorCombate = false;
+                yield break;
+            }
+
+            timer += Time.deltaTime;
+            yield return null;
         }
 
-        Destroy(gameObject);
+        StartCoroutine(RutinaQTECinematico());
+    }
+
+    private IEnumerator RutinaQTECinematico()
+    {
+        estadoActual = EstadoTecho.QTE;
+        eventoCinematicoActivo = true;
+
+        if (animator != null) animator.SetTrigger("Jump");
+
+        if (camaraPrincipal != null)
+        {
+            scriptCamaraController = camaraPrincipal.GetComponent("CameraController") as MonoBehaviour;
+            if (scriptCamaraController != null) scriptCamaraController.enabled = false;
+
+            rotacionOriginalCamara = camaraPrincipal.transform.rotation;
+            offsetOriginalCamara = camaraPrincipal.transform.position - player.position;
+        }
+
+        Time.timeScale = 0.2f;
+        float timerReal = 0f;
+        bool jugadorHizoDash = false;
+
+        while (timerReal < tiempoVentanaQTE)
+        {
+            if (camaraPrincipal != null)
+            {
+                camaraPrincipal.fieldOfView = Mathf.Lerp(camaraPrincipal.fieldOfView, zoomFOV, Time.unscaledDeltaTime * 5f);
+
+                Vector3 posicionOjosJugador = player.position + Vector3.up * 1.5f + player.forward * 0.3f;
+                camaraPrincipal.transform.position = Vector3.Lerp(camaraPrincipal.transform.position, posicionOjosJugador, Time.unscaledDeltaTime * 10f);
+
+                Vector3 direccionEnfoque = (transform.position + Vector3.up * 0.5f) - camaraPrincipal.transform.position;
+                Quaternion rotacionObjetivo = Quaternion.LookRotation(direccionEnfoque);
+                camaraPrincipal.transform.rotation = Quaternion.Slerp(camaraPrincipal.transform.rotation, rotacionObjetivo, Time.unscaledDeltaTime * 12f);
+            }
+
+            if (ChecarInputDashJugador())
+            {
+                jugadorHizoDash = true;
+                break;
+            }
+
+            timerReal += Time.unscaledDeltaTime;
+            yield return null;
+        }
+
+        Time.timeScale = 1f;
+        estadoActual = EstadoTecho.Cayendo;
+
+        Vector3 posicionDesdeTecho = transform.position;
+        Vector3 posicionPisoObjetivo = player.position;
+
+        float tiempoCaidaTotal = 0.5f;
+        float t = 0;
+
+        while (t < tiempoCaidaTotal)
+        {
+            t += Time.deltaTime;
+            float porcentaje = t / tiempoCaidaTotal;
+
+            if (!jugadorHizoDash)
+            {
+                posicionPisoObjetivo = player.position;
+            }
+
+            Vector3 posicionLinealActual = Vector3.Lerp(posicionDesdeTecho, posicionPisoObjetivo, porcentaje);
+            float valorCurvaArc = Mathf.Sin(porcentaje * Mathf.PI);
+            float alturaExtraActual = valorCurvaArc * alturaArcoSalto;
+
+            Vector3 posicionFinalFinal = new Vector3(posicionLinealActual.x, posicionLinealActual.y + alturaExtraActual, posicionLinealActual.z);
+            transform.position = posicionFinalFinal;
+
+            yield return null;
+        }
+
+        transform.position = posicionPisoObjetivo;
+
+        if (nubeHarinaPrefab != null)
+        {
+            GameObject nube = Instantiate(nubeHarinaPrefab, transform.position + Vector3.up * 0.5f, Quaternion.identity);
+            nube.transform.localScale *= multiplicadorTamanoExplosion;
+        }
+
+        if (!jugadorHizoDash)
+        {
+            Collider[] afectados = Physics.OverlapSphere(transform.position, 4f);
+            foreach (Collider col in afectados)
+            {
+                // CONEXIÓN AL NUEVO SISTEMA DE SALUD
+                if (col.CompareTag("Player"))
+                {
+                    PlayerHealth playerHealth = col.GetComponent<PlayerHealth>();
+                    if (playerHealth != null) playerHealth.MancharTraje(40f);
+                }
+            }
+        }
+
+        estadoActual = EstadoTecho.Inactivo;
+        if (dummy != null)
+        {
+            dummy.saludHarina = 0;
+            dummy.RecibirHarinazo();
+        }
+
+        StartCoroutine(RestaurarCamara());
+    }
+
+    private bool ChecarInputDashJugador()
+    {
+        if (playerController != null) return playerController.isDashing;
+        return Input.GetKeyDown(KeyCode.Space);
+    }
+
+    private IEnumerator RestaurarCamara()
+    {
+        if (camaraPrincipal == null)
+        {
+            eventoCinematicoActivo = false;
+            yield break;
+        }
+
+        float t = 0;
+        while (t < 1f)
+        {
+            Vector3 posicionObjetivoCamara = player.position + offsetOriginalCamara;
+
+            camaraPrincipal.fieldOfView = Mathf.Lerp(camaraPrincipal.fieldOfView, fovOriginal, Time.deltaTime * 8f);
+            camaraPrincipal.transform.rotation = Quaternion.Slerp(camaraPrincipal.transform.rotation, rotacionOriginalCamara, Time.deltaTime * 8f);
+            camaraPrincipal.transform.position = Vector3.Lerp(camaraPrincipal.transform.position, posicionObjetivoCamara, Time.deltaTime * 8f);
+
+            t += Time.deltaTime;
+            yield return null;
+        }
+
+        camaraPrincipal.fieldOfView = fovOriginal;
+        if (scriptCamaraController != null) scriptCamaraController.enabled = true;
+
+        eventoCinematicoActivo = false;
+    }
+
+    private void OnDrawGizmosSelected()
+    {
+        Gizmos.color = new Color(1, 0, 0, 0.7f);
+
+        DrawWireDisc(transform.position, radioDeteccion);
+        Vector3 posicionSuelo = new Vector3(transform.position.x, 0, transform.position.z);
+        if (player != null) posicionSuelo.y = player.position.y;
+        DrawWireDisc(posicionSuelo, radioDeteccion);
+        Gizmos.DrawLine(transform.position + Vector3.right * radioDeteccion, posicionSuelo + Vector3.right * radioDeteccion);
+        Gizmos.DrawLine(transform.position - Vector3.right * radioDeteccion, posicionSuelo - Vector3.right * radioDeteccion);
+        Gizmos.DrawLine(transform.position + Vector3.forward * radioDeteccion, posicionSuelo + Vector3.forward * radioDeteccion);
+        Gizmos.DrawLine(transform.position - Vector3.forward * radioDeteccion, posicionSuelo - Vector3.forward * radioDeteccion);
+    }
+
+    private void DrawWireDisc(Vector3 center, float radius)
+    {
+        Matrix4x4 oldMatrix = Gizmos.matrix;
+        Gizmos.matrix = Matrix4x4.TRS(center, transform.rotation, Vector3.one);
+
+        float step = 0.2f;
+        Vector3 lastPoint = Vector3.zero;
+        Vector3 firstPoint = Vector3.zero;
+
+        for (float theta = 0; theta < 2 * Mathf.PI + step; theta += step)
+        {
+            float x = radius * Mathf.Cos(theta);
+            float z = radius * Mathf.Sin(theta);
+            Vector3 nextPoint = new Vector3(x, 0, z);
+
+            if (theta > 0)
+            {
+                Gizmos.DrawLine(lastPoint, nextPoint);
+            }
+            else
+            {
+                firstPoint = nextPoint;
+            }
+            lastPoint = nextPoint;
+        }
+        Gizmos.DrawLine(lastPoint, firstPoint);
+        Gizmos.matrix = oldMatrix;
     }
 }

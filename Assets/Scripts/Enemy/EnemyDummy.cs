@@ -9,11 +9,11 @@ public class EnemyDummy : MonoBehaviour
     public bool isCoughing = false;
     public float tiempoTos = 4f;
 
-    [Header("Ajustes de Animación Terco (Tos)")]
+    [Header("Esta tosiendo bro")]
     public Vector3 rotacionMagicaTos = new Vector3(-90f, 0f, 0f);
     public Vector3 offsetAlturaTos = new Vector3(0f, 1f, 0f);
 
-    [Header("Sistema Social: Chisme Dinámico")]
+    [Header("Fakin chisme")]
     public float radioDeteccionAmigos = 4f;
     public bool estaPlaticando = false;
     private float temporizadorPlatica = 0f;
@@ -21,7 +21,7 @@ public class EnemyDummy : MonoBehaviour
     private Transform amigoPlatica;
     private float tiempoEnfriamientoChisme = 0f;
 
-    [Header("Sistema Social: Baile Automático")]
+    [Header("Los prohibidos")]
     public bool estaDancing = false;
     private float temporizadorDecisiones = 0f;
 
@@ -31,7 +31,7 @@ public class EnemyDummy : MonoBehaviour
 
     [Header("Seguridad de Combate")]
     [Tooltip("Cualquier script de ataque puede activar esto para apagar el chisme/baile temporalmente")]
-    public bool bloqueadoPorCombate = false; // <-- NUEVA ANCLA DE SEGURIDAD
+    public bool bloqueadoPorCombate = false; 
 
     private Animator animator;
     private NavMeshAgent agente;
@@ -60,10 +60,8 @@ public class EnemyDummy : MonoBehaviour
             if (temporizadorAlerta <= 0) estaAlerta = false;
         }
 
-        // SI ESTÁ MUERTO, TOSIENDO O ATACANDO, SE APAGA LA VIDA SOCIAL COMPLETAMENTE
         if (saludHarina <= 0 || isCoughing || bloqueadoPorCombate) return;
 
-        // 1. Sincronizar Animaciones
         if (animator != null)
         {
             if (agente != null && agente.enabled)

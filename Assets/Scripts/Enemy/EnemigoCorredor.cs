@@ -8,6 +8,7 @@ public class EnemigoCorredor : MonoBehaviour
     [Header("Ataque de Área (Grito y Explosión)")]
     public Transform player;
     public GameObject nubeHarinaPrefab;
+    [Tooltip("¿Qué tan grande será la nube comparada con la del Lanzador? (ej. 2 = el doble)")]
     public float multiplicadorTamanoExplosion = 2f;
 
     [Tooltip("Distancia a la que te ve normalmente (Ojos del enemigo)")]
@@ -16,7 +17,7 @@ public class EnemigoCorredor : MonoBehaviour
     public float distanciaDeteccionAlerta = 20f;
 
     public float distanciaAtaqueArea = 2.5f;
-    public float tiempoGritoPreparacion = 1f;
+    public float tiempoGritoPreparacion = 1.2f;
     public float tiempoCansancio = 3f;
 
     [Header("Velocidades de Movimiento")]
@@ -36,31 +37,42 @@ public class EnemigoCorredor : MonoBehaviour
     private bool esperandoEnPunto = false;
 
     public bool estaAtacando = false;
+    private float radioAmigosOriginal;
 
     private void Start()
     {
         agente = GetComponent<NavMeshAgent>();
         dummy = GetComponent<EnemyDummy>();
-
-        Animator[] animators = GetComponentsInChildren<Animator>();
-        foreach (Animator anim in animators)
-        {
-            if (anim.gameObject != this.gameObject)
-            {
-                animator = anim;
-                break;
-            }
-        }
+        animator = GetComponentInChildren<Animator>();
 
         centroPatrullaje = transform.position;
+
+        if (dummy != null)
+        {
+            radioAmigosOriginal = dummy.radioDeteccionAmigos;
+        }
+
         BuscarNuevoPuntoPatrulla();
     }
 
     private void Update()
     {
         if (agente == null || !agente.enabled || dummy.saludHarina <= 0 || dummy.isCoughing) return;
+        if (EnemigoTecho.eventoCinematicoActivo) return;
 
-        if (estaAtacando) return;
+        if (estaAtacando)
+        {
+            if (dummy.estaPlaticando) dummy.RomperPlatica();
+            dummy.estaDancing = false;
+
+            if (animator != null)
+            {
+                animator.SetBool("IsDancing", false);
+                animator.SetBool("IsTalking", false);
+                animator.SetFloat("Speed", 0f);
+            }
+            return;
+        }
 
         float radioVisionActual = dummy.estaAlerta ? distanciaDeteccionAlerta : distanciaDeteccionNormal;
 
@@ -69,30 +81,16 @@ public class EnemigoCorredor : MonoBehaviour
             float distanciaAlJugador = Vector3.Distance(transform.position, player.position);
             bool tieneOjosEnElJugador = TieneLineaDeVision(radioVisionActual);
 
-            // TE DETECTA SÓLO SI: Está en rango Y lo ve directo a los ojos, O si ya está en Mente Colmena (Alerta)
             if (distanciaAlJugador <= radioVisionActual && (tieneOjosEnElJugador || dummy.estaAlerta))
             {
-                // Apagamos la vida social de inmediato
-                dummy.bloqueadoPorCombate = true;
-                dummy.RomperPlatica();
-                dummy.estaDancing = false;
-                dummy.estaAlerta = false;
-
-                if (animator != null)
-                {
-                    animator.SetBool("IsTalking", false);
-                    animator.SetBool("IsDancing", false);
-                }
+                if (dummy.estaPlaticando) dummy.RomperPlatica();
+                if (dummy.estaDancing) dummy.estaDancing = false;
 
                 PerseguirYAtacar(distanciaAlJugador);
                 return;
             }
             else
             {
-                // Si el jugador se escapó o se escondió detrás de un muro, liberamos el bloqueo de combate
-                if (!estaAtacando) dummy.bloqueadoPorCombate = false;
-
-                // Si se rompió el camino y traía al jugador de destino, reseteamos para que patrulle normal
                 if (agente.hasPath && agente.destination == player.position)
                 {
                     agente.ResetPath();
@@ -104,23 +102,24 @@ public class EnemigoCorredor : MonoBehaviour
         if (dummy.estaAlerta)
         {
             agente.speed = velocidadPatrullaje;
-            if (agente.isOnNavMesh) agente.isStopped = true;
-
-            if (player != null)
-            {
-                Vector3 direccionMirada = player.position - transform.position;
-                direccionMirada.y = 0;
-                if (direccionMirada != Vector3.zero)
-                {
-                    transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(direccionMirada), Time.deltaTime * 3f);
-                }
-            }
+            if (agente.isOnNavMesh) { agente.isStopped = true; MirarAlJugador(); }
             return;
         }
 
-        if (dummy.estaDancing || dummy.estaPlaticando) return;
+        if (dummy.estaDancing || dummy.estaPlaticating()) return;
 
         Patrullar();
+    }
+
+    private void MirarAlJugador()
+    {
+        if (player == null) return;
+        Vector3 direccionMirada = player.position - transform.position;
+        direccionMirada.y = 0;
+        if (direccionMirada != Vector3.zero)
+        {
+            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(direccionMirada), Time.deltaTime * 5f);
+        }
     }
 
     private void PerseguirYAtacar(float distanciaAlJugador)
@@ -140,7 +139,10 @@ public class EnemigoCorredor : MonoBehaviour
     private IEnumerator RutinaAtaqueExplosivo()
     {
         estaAtacando = true;
-        dummy.bloqueadoPorCombate = true; // Aseguramos bloqueo absoluto
+
+        dummy.radioDeteccionAmigos = 0f;
+        if (dummy.estaPlaticando) dummy.RomperPlatica();
+        dummy.estaDancing = false;
 
         if (agente.isOnNavMesh)
         {
@@ -149,28 +151,18 @@ public class EnemigoCorredor : MonoBehaviour
             agente.ResetPath();
         }
 
-        // BAJA TOTAL: Forzamos la animación de Idle de la raíz del proyecto usando su ruta absoluta
         if (animator != null)
         {
             animator.SetBool("IsDancing", false);
             animator.SetBool("IsTalking", false);
-            animator.Play("Base Layer.Idle", 0, 0f);
+            animator.SetFloat("Speed", 0f);
         }
-
-        if (player != null)
-        {
-            Vector3 direccionMirada = player.position - transform.position;
-            direccionMirada.y = 0;
-            if (direccionMirada != Vector3.zero)
-            {
-                transform.rotation = Quaternion.LookRotation(direccionMirada);
-            }
-        }
-
-        yield return new LogIfGreeting(); // Pequeño espacio de respiro técnico
+        yield return null;
 
         if (animator != null && !dummy.isCoughing && dummy.saludHarina > 0)
+        {
             animator.SetTrigger("BattleCry");
+        }
 
         float t = 0;
         while (t < tiempoGritoPreparacion)
@@ -180,6 +172,7 @@ public class EnemigoCorredor : MonoBehaviour
                 FinalizarAtaque();
                 yield break;
             }
+            MirarAlJugador();
             t += Time.deltaTime;
             yield return null;
         }
@@ -187,43 +180,47 @@ public class EnemigoCorredor : MonoBehaviour
         if (nubeHarinaPrefab != null && !dummy.isCoughing && dummy.saludHarina > 0)
         {
             GameObject nube = Instantiate(nubeHarinaPrefab, transform.position + Vector3.up * 0.5f, Quaternion.identity);
-            nube.transform.localScale = nube.transform.localScale * multiplicadorTamanoExplosion;
-        }
+            nube.transform.localScale *= multiplicadorTamanoExplosion;
 
-        t = 0;
-        while (t < tiempoCansancio)
-        {
-            if (dummy.isCoughing || dummy.saludHarina <= 0)
+            float radioExplosion = 3f;
+            Collider[] afectados = Physics.OverlapSphere(transform.position, radioExplosion);
+
+            foreach (Collider col in afectados)
             {
-                FinalizarAtaque();
-                yield break;
+                // CONEXIÓN AL NUEVO SISTEMA DE SALUD
+                if (col.CompareTag("Player"))
+                {
+                    PlayerHealth playerHealth = col.GetComponent<PlayerHealth>();
+                    if (playerHealth != null)
+                    {
+                        playerHealth.MancharTraje(15f);
+                    }
+                }
             }
-            t += Time.deltaTime;
-            yield return null;
         }
 
+        yield return new WaitForSeconds(tiempoCansancio);
         FinalizarAtaque();
     }
 
     private void FinalizarAtaque()
     {
         estaAtacando = false;
-        dummy.bloqueadoPorCombate = false;
-        if (agente.isOnNavMesh && dummy.saludHarina > 0 && !dummy.isCoughing)
+        dummy.radioDeteccionAmigos = radioAmigosOriginal;
+
+        if (agente != null && agente.isOnNavMesh && dummy.saludHarina > 0 && !dummy.isCoughing)
         {
             agente.isStopped = false;
         }
     }
 
-    private bool TieneLineaDeVision(float radioVisionActual)
+    private bool TieneLineaDeVision(float radio)
     {
         if (player == null) return false;
-
-        // Lanzamos el rayo desde la altura del pecho del enemigo hacia el jugador
         Vector3 origen = transform.position + Vector3.up * 1f;
         Vector3 direccion = (player.position + Vector3.up * 1f) - origen;
 
-        if (Physics.Raycast(origen, direccion.normalized, out RaycastHit hit, radioVisionActual))
+        if (Physics.Raycast(origen, direccion.normalized, out RaycastHit hit, radio))
         {
             if (hit.collider.CompareTag("Player")) return true;
         }
@@ -258,27 +255,16 @@ public class EnemigoCorredor : MonoBehaviour
 
     private void BuscarNuevoPuntoPatrulla()
     {
-        if (radioPatrullaje <= 0) radioPatrullaje = 10f;
-
-        for (int i = 0; i < 10; i++)
+        Vector3 direccionAleatoria = Random.insideUnitSphere * radioPatrullaje + centroPatrullaje;
+        NavMeshHit hit;
+        if (NavMesh.SamplePosition(direccionAleatoria, out hit, radioPatrullaje, NavMesh.AllAreas))
         {
-            Vector3 direccionAleatoria = Random.insideUnitSphere * radioPatrullaje;
-            direccionAleatoria += centroPatrullaje;
-
-            NavMeshHit hit;
-            if (NavMesh.SamplePosition(direccionAleatoria, out hit, radioPatrullaje, NavMesh.AllAreas))
-            {
-                if (agente.isOnNavMesh)
-                {
-                    agente.SetDestination(hit.position);
-                    return;
-                }
-            }
+            if (agente.isOnNavMesh) agente.SetDestination(hit.position);
         }
     }
 }
 
-public class LogIfGreeting : CustomYieldInstruction
+public static class DummyExtensions
 {
-    public override bool keepWaiting { get { return false; } }
+    public static bool estaPlaticating(this EnemyDummy d) { return d.estaPlaticando; }
 }

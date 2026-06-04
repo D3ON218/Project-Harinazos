@@ -96,44 +96,32 @@ public class PlayerCombat : MonoBehaviour
         }
     }
 
-    // --- 1. LÓGICA DE ASOMO LATERAL ---
     private Vector3 ObtenerOrigenDisparo()
     {
         if (scriptMovimiento != null && scriptMovimiento.isInCover)
         {
-            // Calculamos el ángulo para saber si miras a la izquierda o a la derecha
             float angulo = Vector3.SignedAngle(transform.forward, camTransform.forward, Vector3.up);
-
-            // transform.right es una línea paralela al muro. Lo multiplicamos para asomarnos por ese lado.
             Vector3 ladoAsomo = (angulo < 0) ? -transform.right : transform.right;
-
-            // Altura del hombro + nos asomamos al lado + nos asomamos un poco hacia la calle
             return transform.position + (Vector3.up * 1.2f) + (ladoAsomo * 0.7f) + (transform.forward * 0.5f);
         }
 
         return puntoDisparo != null ? puntoDisparo.position : transform.position + transform.forward * 0.5f + Vector3.up * 1.2f;
     }
 
-    // --- 2. APUNTADO PERFECTO AL CENTRO DE LA CÁMARA ---
     private Vector3 CalcularDireccionTiro(Vector3 origen)
     {
         Vector3 puntoDestino;
 
-        // Lanzamos un rayo desde el centro de la cámara para saber qué estás mirando
         if (Physics.Raycast(camTransform.position, camTransform.forward, out RaycastHit hit, 100f, capaColisionTrayectoria))
         {
             puntoDestino = hit.point;
         }
         else
         {
-            // Si apuntas al cielo o al vacío, ponemos el destino muy lejos
             puntoDestino = camTransform.position + camTransform.forward * 50f;
         }
 
-        // La dirección real es desde tu mano asomada hacia ese punto cruzado
         Vector3 direccionReal = (puntoDestino - origen).normalized;
-
-        // Le sumamos el arco para que haga la parábola
         return (direccionReal + Vector3.up * arcoLanzamiento).normalized;
     }
 
@@ -143,7 +131,7 @@ public class PlayerCombat : MonoBehaviour
         trayectoriaLine.positionCount = numPuntos;
 
         Vector3 origen = ObtenerOrigenDisparo();
-        Vector3 direccionLanzamiento = CalcularDireccionTiro(origen); // Usa el cálculo AAA
+        Vector3 direccionLanzamiento = CalcularDireccionTiro(origen);
         Vector3 velocidadInicial = direccionLanzamiento * fuerzaLanzamiento;
 
         Vector3 puntoAnterior = origen;
@@ -205,7 +193,7 @@ public class PlayerCombat : MonoBehaviour
         Rigidbody rbProyectil = proyectil.GetComponent<Rigidbody>();
         if (rbProyectil != null)
         {
-            Vector3 direccionLanzamiento = CalcularDireccionTiro(origen); // Usa el cálculo AAA
+            Vector3 direccionLanzamiento = CalcularDireccionTiro(origen);
             rbProyectil.velocity = direccionLanzamiento * fuerzaLanzamiento;
         }
 

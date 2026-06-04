@@ -108,6 +108,8 @@ MonoBehaviour:
   municionHarina: 0
   isAiming: 0
   isPerformingAction: 0
+  manchaTrajePrefab: {fileID: 4698499090958379035, guid: 5505ba318123b4a469f1acfa3e995533,
+    type: 3}
   proyectilPrefab: {fileID: 7003969041295602557, guid: e121ab873bcc8e148bc2eaffeb131363,
     type: 3}
   puntoDisparo: {fileID: 2497148498739321755}
@@ -954,7 +956,7 @@ PrefabInstance:
     - target: {fileID: 8548684881773834792, guid: 65987b960ee4b324a8fc57b7089f695f,
         type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0
+      value: -0.034
       objectReference: {fileID: 0}
     - target: {fileID: 8548684881773834792, guid: 65987b960ee4b324a8fc57b7089f695f,
         type: 3}
