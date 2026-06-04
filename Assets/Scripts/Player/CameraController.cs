@@ -10,10 +10,10 @@ public class CameraController : MonoBehaviour
     public float shoulderOffset = 0.8f;
     public float sensitivity = 150f;
 
-    [Header("Colisión con Paredes")]
+    [Header("Colisiï¿½n con Paredes")]
     public LayerMask capasParedes;
     public float suavidadAcercamiento = 25f;
-    [Tooltip("Grosor de la cámara para que no atraviese las esquinas(No lo pude hacer jalar)")]
+    [Tooltip("Grosor de la cï¿½mara para que no atraviese las esquinas(No lo pude hacer jalar)")]
     public float radioCamara = 0.3f;
 
     private PlayerControls controls;
