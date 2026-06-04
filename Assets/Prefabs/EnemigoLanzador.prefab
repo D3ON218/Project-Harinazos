@@ -1146,7 +1146,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: eb13a94847b17bc4bacf6fec6cbd2ae8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  saludHarina: 3
+  saludHarina: 4
   isCoughing: 0
   tiempoTos: 4
   rotacionMagicaTos: {x: 90, y: 0, z: 0}
@@ -1172,10 +1172,10 @@ MonoBehaviour:
   proyectilHarinaPrefab: {fileID: 7003969041295602557, guid: e121ab873bcc8e148bc2eaffeb131363,
     type: 3}
   puntoDisparo: {fileID: 6171975837287733314}
-  distanciaAtaqueNormal: 10
-  distanciaAtaqueAlerta: 20
-  tiempoEntreDisparos: 2
-  fuerzaLanzamiento: 12
+  distanciaAtaqueNormal: 15
+  distanciaAtaqueAlerta: 30
+  tiempoEntreDisparos: 1.5
+  fuerzaLanzamiento: 15
   radioPatrullaje: 5
   tiempoEsperaPunto: 2
 --- !u!195 &1546405503251188967

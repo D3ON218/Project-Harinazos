@@ -33,7 +33,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: -0.4589219, y: -0.055915833, z: 0.15991783}
-  m_LocalScale: {x: 0.5, y: 1, z: 0.5}
+  m_LocalScale: {x: 0.49999994, y: 1, z: 0.49999994}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 4618347103841270575}
@@ -126,9 +126,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: eb13a94847b17bc4bacf6fec6cbd2ae8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  saludHarina: 3
+  saludHarina: 5
   isCoughing: 0
-  tiempoTos: 4
+  tiempoTos: 0
   rotacionMagicaTos: {x: -90, y: 0, z: 0}
   offsetAlturaTos: {x: 0, y: 1, z: 0}
   radioDeteccionAmigos: 3
@@ -155,6 +155,7 @@ MonoBehaviour:
   radioDeteccion: 6
   tiempoAdvertencia: 0.5
   tiempoVentanaQTE: 1
+  alturaArcoSalto: 2
   zoomFOV: 40
 --- !u!54 &1347879263702084826
 Rigidbody:

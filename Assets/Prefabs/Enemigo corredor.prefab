@@ -192,7 +192,7 @@ MonoBehaviour:
   saludHarina: 3
   isCoughing: 0
   tiempoTos: 4
-  rotacionMagicaTos: {x: 90, y: 0, z: 0}
+  rotacionMagicaTos: {x: -90, y: 0, z: 0}
   offsetAlturaTos: {x: 0, y: 0.8, z: 0}
   radioDeteccionAmigos: 6
   estaPlaticando: 0
